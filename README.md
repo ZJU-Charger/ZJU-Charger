@@ -58,6 +58,14 @@ flowchart TD
 
 钉钉机器人效果：
 
+## 最小抓取示例
+
+详见 [get_status.py](./get_status.py)。
+
+```shell
+python get_status.py --address 50359163
+```
+
 ## 项目结构
 
 ```text
