@@ -1,9 +1,10 @@
 """FastAPI 主服务"""
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
 from datetime import datetime, timezone, timedelta
+from typing import List, Optional, Dict, Any
 import sys
 import logging
 import asyncio
@@ -21,9 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from fetcher.provider_manager import ProviderManager
 from server.config import Config
 from server.storage import (
-    load_latest, save_latest, 
-    load_watchlist, get_watchlist_devids, get_watchlist_devdescripts,
-    add_to_watchlist, remove_from_watchlist, is_in_watchlist
+    load_latest, save_latest
 )
 from server.station_loader import load_stations
 from ding.webhook import router as ding_router
@@ -46,11 +45,8 @@ async def startup_event():
     logger.info(f"  - 后端定时抓取间隔: {Config.BACKEND_FETCH_INTERVAL} 秒")
     
     # 启动后台定时抓取任务
-    if Config.get_openid():
-        asyncio.create_task(background_fetch_task())
-        logger.info(f"已启动后台定时抓取任务，间隔: {Config.BACKEND_FETCH_INTERVAL} 秒")
-    else:
-        logger.warning("OPENID 未设置，无法启动后台定时抓取任务")
+    asyncio.create_task(background_fetch_task())
+    logger.info(f"已启动后台定时抓取任务，间隔: {Config.BACKEND_FETCH_INTERVAL} 秒")
     
     logger.info("服务器启动事件：检查站点信息文件...")
     try:
@@ -103,6 +99,53 @@ def _get_timestamp():
     tz_utc_8 = timezone(timedelta(hours=8))
     return datetime.now(tz_utc_8).isoformat()
 
+def aggregate_stations_by_id(stations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """聚合相同 id 的站点
+    
+    对于相同 id 的站点：
+    - 只保留第一个站点，使用第一个站点的所有信息
+    
+    Args:
+        stations: 站点列表
+        
+    Returns:
+        聚合后的站点列表
+    """
+    if not stations:
+        return []
+    
+    # 按 id 分组，只保留第一个站点
+    stations_by_id = {}
+    for station in stations:
+        station_id = station.get("id")
+        if not station_id:
+            # 如果没有 id，使用 name 作为 fallback（向后兼容）
+            station_id = station.get("name", "")
+            if not station_id:
+                continue
+        
+        if station_id not in stations_by_id:
+            # 第一个站点，直接使用
+            stations_by_id[station_id] = {
+                "station": station.copy(),
+                "count": 1
+            }
+        else:
+            # 后续相同 id 的站点，忽略
+            stations_by_id[station_id]["count"] += 1
+    
+    # 转换为列表
+    aggregated_stations = []
+    for station_id, data in stations_by_id.items():
+        station = data["station"]
+        aggregated_stations.append(station)
+        
+        if data["count"] > 1:
+            station_name = station.get("name", "未知站点")
+            logger.info(f"聚合站点 '{station_name}' (id={station_id[:8]}...): 保留了第一个站点，合并了 {data['count']} 个站点")
+    
+    return aggregated_stations
+
 @app.get("/")
 async def root():
     """根路径 - 重定向到前端页面"""
@@ -116,15 +159,9 @@ async def api_info():
         "message": "ZJU Charger API",
         "version": "1.0.0",
         "endpoints": {
-            "GET /api/status": "实时查询所有站点（支持 ?provider=neptune 参数筛选）",
+            "GET /api/status": "实时查询所有站点（支持 ?provider=neptune 参数筛选，支持 ?id=xxx 查询指定站点）",
             "GET /api/providers": "返回可用服务商列表",
-            "GET /api/config": "返回前端配置信息（包括抓取间隔等）",
-            "POST /api/fetch-and-save": "抓取并保存数据（GitHub Action 使用）",
-            "GET /api/cache": "返回缓存数据",
-            "GET /api/watchlist": "返回关注列表站点状态",
-            "GET /api/watchlist/list": "返回关注列表 devid 和 devdescript 列表",
-            "POST /api/watchlist": "添加到关注列表（请求体：{\"devids\": [devid1, ...], \"devdescripts\": [\"站点名1\", ...]}，两者可同时提供或只提供其中一个）",
-            "DELETE /api/watchlist": "从关注列表移除（请求体：{\"devids\": [devid1, ...], \"devdescripts\": [\"站点名1\", ...]}，两者可同时提供或只提供其中一个）"
+            "GET /api/config": "返回前端配置信息（包括抓取间隔等）"
         }
     }
 
@@ -140,16 +177,8 @@ async def get_config():
 async def get_providers():
     """返回可用服务商列表"""
     logger.info("收到 /api/providers 请求")
-    openid = Config.get_openid()
-    if not openid:
-        logger.error("OPENID 环境变量未设置")
-        raise HTTPException(
-            status_code=500,
-            detail="OPENID 环境变量未设置"
-        )
-    
     try:
-        manager = ProviderManager(openid)
+        manager = ProviderManager()
         providers = manager.list_providers()
         logger.info(f"返回 {len(providers)} 个服务商")
         return providers
@@ -161,34 +190,121 @@ async def get_providers():
         )
 
 @app.get("/api/status")
-async def get_status(provider: str = None):
-    """实时查询所有站点状态
+async def get_status(
+    provider: Optional[str] = None,
+    id: Optional[str] = None
+):
+    """查询所有站点状态（优先从缓存读取）
     
     Args:
         provider: 可选，服务商标识（如 'neptune'），如果指定则只返回该服务商的数据
+        id: 可选，站点唯一标识，如果指定则只返回匹配的站点
     """
-    logger.info(f"收到 /api/status 请求，provider={provider}")
-    openid = Config.get_openid()
-    if not openid:
-        logger.error("OPENID 环境变量未设置")
-        raise HTTPException(
-            status_code=500, 
-            detail="OPENID 环境变量未设置"
-        )
+    logger.info(f"收到 /api/status 请求，provider={provider}, id={id}")
     
     try:
-        logger.info("开始抓取数据...")
-        manager = ProviderManager(openid)
-        result = await manager.fetch_and_format(provider_id=provider)
-        if result is None:
-            logger.error("数据抓取失败：返回 None")
-            raise HTTPException(
-                status_code=500,
-                detail="数据抓取失败"
-            )
-        station_count = len(result.get("stations", []))
-        logger.info(f"数据抓取成功，共 {station_count} 个站点")
-        return result
+        # 优先从缓存读取
+        cached_data = load_latest()
+        use_cache = False
+        
+        if cached_data and cached_data.get("stations"):
+            # 检查缓存是否有效（有数据且格式正确）
+            stations = cached_data.get("stations", [])
+            
+            # 如果指定了 provider，检查缓存中是否有该服务商的数据
+            if provider:
+                has_provider_data = any(s.get("provider_id") == provider for s in stations)
+                if has_provider_data:
+                    use_cache = True
+                    logger.info(f"使用缓存数据（provider={provider}）")
+            else:
+                # 没有指定 provider，使用全部缓存数据
+                use_cache = True
+                logger.info("使用缓存数据（全部服务商）")
+        
+        if use_cache:
+            # 从缓存中过滤数据
+            result = {
+                "updated_at": cached_data.get("updated_at", _get_timestamp()),
+                "stations": cached_data.get("stations", [])
+            }
+            
+            # 如果指定了 provider，过滤出该服务商的数据
+            if provider:
+                result["stations"] = [
+                    s for s in result["stations"]
+                    if s.get("provider_id") == provider
+                ]
+                logger.info(f"从缓存中过滤出 {len(result['stations'])} 个 {provider} 服务商的站点")
+            
+            # 如果指定了 id，过滤出匹配的站点
+            if id:
+                result["stations"] = [
+                    s for s in result["stations"]
+                    if s.get("id") == id
+                ]
+                logger.info(f"按 id 过滤后，共 {len(result['stations'])} 个站点")
+            
+            if not id:
+                # 聚合相同 id 的站点（只有在没有指定 id 时才聚合）
+                result["stations"] = aggregate_stations_by_id(result["stations"])
+                logger.info(f"聚合后，共 {len(result['stations'])} 个站点")
+            else:
+                logger.info(f"从缓存返回 {len(result['stations'])} 个站点")
+            
+            return result
+        else:
+            # 缓存不存在或无效，进行实时抓取
+            logger.info("缓存不存在或无效，开始实时抓取数据...")
+            manager = ProviderManager()
+            result = await manager.fetch_and_format(provider_id=provider)
+            
+            if result is None:
+                logger.error("数据抓取失败：返回 None")
+                # 如果抓取失败，尝试返回缓存（即使可能过期）
+                if cached_data:
+                    logger.warning("实时抓取失败，返回可能过期的缓存数据")
+                    result = {
+                        "updated_at": cached_data.get("updated_at", _get_timestamp()),
+                        "stations": cached_data.get("stations", [])
+                    }
+                    if provider:
+                        result["stations"] = [
+                            s for s in result["stations"]
+                            if s.get("provider_id") == provider
+                        ]
+                    if id:
+                        result["stations"] = [
+                            s for s in result["stations"]
+                            if s.get("id") == id
+                        ]
+                    if not id:
+                        # 聚合相同 id 的站点（只有在没有指定 id 时才聚合）
+                        result["stations"] = aggregate_stations_by_id(result["stations"])
+                    return result
+                else:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="数据抓取失败且无缓存数据"
+                    )
+            
+            stations = result.get("stations", [])
+            logger.info(f"实时抓取成功，共 {len(stations)} 个站点")
+            
+            # 如果指定了 id，过滤出匹配的站点
+            if id:
+                result["stations"] = [
+                    s for s in result["stations"]
+                    if s.get("id") == id
+                ]
+                logger.info(f"按 id 过滤后，共 {len(result['stations'])} 个站点")
+            
+            if not id:
+                # 聚合相同 id 的站点（只有在没有指定 id 时才聚合）
+                result["stations"] = aggregate_stations_by_id(result["stations"])
+                logger.info(f"聚合后，共 {len(result['stations'])} 个站点")
+            
+            return result
     except HTTPException:
         raise
     except Exception as e:
@@ -197,239 +313,36 @@ async def get_status(provider: str = None):
             status_code=500,
             detail=f"查询失败: {str(e)}"
         )
-
-@app.post("/api/fetch-and-save")
-async def fetch_and_save():
-    """抓取数据并保存到缓存（GitHub Action 调用）"""
-    logger.info("收到 /api/fetch-and-save 请求（GitHub Action）")
-    openid = Config.get_openid()
-    if not openid:
-        logger.error("OPENID 环境变量未设置")
-        raise HTTPException(
-            status_code=500,
-            detail="OPENID 环境变量未设置"
-        )
-    
-    try:
-        logger.info("开始抓取并保存数据...")
-        manager = ProviderManager(openid)
-        result = await manager.fetch_and_format()
-        if result is None:
-            logger.error("数据抓取失败：返回 None")
-            raise HTTPException(
-                status_code=500,
-                detail="数据抓取失败"
-            )
-        
-        # 保存到 latest.json
-        if save_latest(result):
-            station_count = len(result.get("stations", []))
-            logger.info(f"数据已成功保存，共 {station_count} 个站点")
-            return {
-                "success": True,
-                "message": "数据已保存",
-                "data": result
-            }
-        else:
-            logger.error("保存数据到 latest.json 失败")
-            raise HTTPException(
-                status_code=500,
-                detail="保存数据失败"
-            )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"操作失败: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"操作失败: {str(e)}"
-        )
-
-@app.get("/api/cache")
-async def get_cache():
-    """返回缓存数据（从 latest.json 读取）"""
-    logger.info("收到 /api/cache 请求")
-    data = load_latest()
-    if data is None:
-        logger.warning("缓存数据不存在")
-        raise HTTPException(
-            status_code=404,
-            detail="缓存数据不存在"
-        )
-    station_count = len(data.get("stations", []))
-    logger.info(f"返回缓存数据，共 {station_count} 个站点")
-    return data
-
-@app.get("/api/watchlist")
-async def get_watchlist_status():
-    """返回关注列表站点状态"""
-    logger.info("收到 /api/watchlist 请求")
-    openid = Config.get_openid()
-    if not openid:
-        logger.error("OPENID 环境变量未设置")
-        raise HTTPException(
-            status_code=500,
-            detail="OPENID 环境变量未设置"
-        )
-    
-    watchlist_devids = get_watchlist_devids()
-    watchlist_devdescripts = get_watchlist_devdescripts()
-    logger.info(f"关注列表 devids: {watchlist_devids}, devdescripts: {watchlist_devdescripts}")
-    
-    if not watchlist_devids and not watchlist_devdescripts:
-        logger.info("关注列表为空")
-        return {
-            "updated_at": _get_timestamp(),
-            "stations": [],
-            "message": "关注列表为空"
-        }
-    
-    try:
-        logger.info("开始抓取关注列表数据...")
-        manager = ProviderManager(openid)
-        result = await manager.fetch_and_format()
-        if result is None:
-            logger.error("数据抓取失败：返回 None")
-            raise HTTPException(
-                status_code=500,
-                detail="数据抓取失败"
-            )
-        
-        # 过滤出关注列表中的站点（检查 devid 或 devdescript）
-        filtered_stations = [
-            station for station in result["stations"]
-            if is_in_watchlist(
-                devids=station.get("devids"),
-                devdescript=station.get("name")
-            )
-        ]
-        
-        logger.info(f"返回 {len(filtered_stations)} 个关注站点")
-        return {
-            "updated_at": result["updated_at"],
-            "stations": filtered_stations
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"查询失败: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"查询失败: {str(e)}"
-        )
-
-@app.get("/api/watchlist/list")
-async def get_watchlist_list():
-    """返回关注列表中的 devid 和 devdescript 列表"""
-    logger.info("收到 /api/watchlist/list 请求")
-    watchlist = load_watchlist()
-    return {
-        "devids": watchlist.get("devids", []),
-        "devdescripts": watchlist.get("devdescripts", []),
-        "updated_at": watchlist.get("updated_at", "")
-    }
-
-@app.post("/api/watchlist")
-async def add_watchlist(request: Request):
-    """添加 devid 或 devdescript 到关注列表
-    
-    请求体可以包含：
-    - devids: devid 列表
-    - devdescripts: devdescript（站点名称）列表
-    两者可以同时提供，也可以只提供其中一个
-    """
-    try:
-        body = await request.json()
-        devids = body.get("devids")
-        devdescripts = body.get("devdescripts")
-        
-        if not devids and not devdescripts:
-            raise HTTPException(status_code=400, detail="缺少 devids 或 devdescripts 参数")
-        
-        logger.info(f"收到添加关注请求: devids={devids}, devdescripts={devdescripts}")
-        
-        # 验证数据是否存在（通过获取所有站点来验证）
-        openid = Config.get_openid()
-        if not openid:
-            raise HTTPException(status_code=500, detail="OPENID 环境变量未设置")
-        
-        manager = ProviderManager(openid)
-        result = await manager.fetch_and_format()
-        if result is None:
-            raise HTTPException(status_code=500, detail="无法验证数据，数据抓取失败")
-        
-        stations = result.get("stations", [])
-        
-        # 验证 devids
-        if devids:
-            if not isinstance(devids, list):
-                devids = [devids]
-            
-            # 收集所有有效的 devid
-            all_devids = set()
-            for station in stations:
-                station_devids = station.get("devids", [])
-                all_devids.update(station_devids)
-            
-            # 检查请求的 devid 是否都存在
-            invalid_devids = [d for d in devids if int(d) not in all_devids]
-            if invalid_devids:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"以下 devid 不存在: {invalid_devids}"
-                )
-        
-        # 验证 devdescripts
-        if devdescripts:
-            if not isinstance(devdescripts, list):
-                devdescripts = [devdescripts]
-            
-            # 收集所有有效的站点名称
-            all_names = {s["name"] for s in stations}
-            
-            # 检查请求的站点名称是否都存在
-            invalid_names = [n for n in devdescripts if n not in all_names]
-            if invalid_names:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"以下站点名称不存在: {invalid_names}"
-                )
-        
-        # 添加到关注列表
-        success = add_to_watchlist(devids=devids, devdescripts=devdescripts)
-        if success:
-            logger.info(f"成功添加关注: devids={devids}, devdescripts={devdescripts}")
-            return {
-                "success": True,
-                "message": f"已添加到关注列表: devids={devids}, devdescripts={devdescripts}"
-            }
-        else:
-            logger.info(f"已在关注列表中: devids={devids}, devdescripts={devdescripts}")
-            return {
-                "success": False,
-                "message": f"已在关注列表中: devids={devids}, devdescripts={devdescripts}"
-            }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"添加关注失败: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"操作失败: {str(e)}")
 
 async def background_fetch_task():
     """后台定时抓取任务，定期从供应商API抓取数据并保存到缓存"""
-    openid = Config.get_openid()
-    if not openid:
-        logger.warning("OPENID 未设置，后台抓取任务无法运行")
-        return
-    
     fetch_interval = Config.BACKEND_FETCH_INTERVAL
     
+    # 启动时先执行一次，确保有初始缓存
+    logger.info("执行首次后台抓取任务，初始化缓存...")
+    try:
+        manager = ProviderManager()
+        result = await manager.fetch_and_format()
+        
+        if result is None:
+            logger.error("首次后台抓取数据失败：返回 None")
+        else:
+            # 保存到 latest.json
+            if save_latest(result):
+                station_count = len(result.get("stations", []))
+                logger.info(f"首次后台抓取数据成功并已保存，共 {station_count} 个站点")
+            else:
+                logger.error("首次后台抓取数据保存失败")
+    except Exception as e:
+        logger.error(f"首次后台抓取任务发生异常: {str(e)}", exc_info=True)
+    
+    # 然后按间隔定时执行
     while True:
         try:
             await asyncio.sleep(fetch_interval)
             logger.info(f"开始后台定时抓取数据（间隔: {fetch_interval}秒）...")
             
-            manager = ProviderManager(openid)
+            manager = ProviderManager()
             result = await manager.fetch_and_format()
             
             if result is None:
@@ -446,44 +359,6 @@ async def background_fetch_task():
             logger.error(f"后台抓取任务发生异常: {str(e)}", exc_info=True)
             # 发生异常时等待一段时间再继续，避免频繁重试
             await asyncio.sleep(60)
-
-@app.delete("/api/watchlist")
-async def remove_watchlist(request: Request):
-    """从关注列表移除 devid 或 devdescript
-    
-    请求体可以包含：
-    - devids: devid 列表
-    - devdescripts: devdescript（站点名称）列表
-    两者可以同时提供，也可以只提供其中一个
-    """
-    try:
-        body = await request.json()
-        devids = body.get("devids")
-        devdescripts = body.get("devdescripts")
-        
-        if not devids and not devdescripts:
-            raise HTTPException(status_code=400, detail="缺少 devids 或 devdescripts 参数")
-        
-        logger.info(f"收到移除关注请求: devids={devids}, devdescripts={devdescripts}")
-        
-        success = remove_from_watchlist(devids=devids, devdescripts=devdescripts)
-        if success:
-            logger.info(f"成功移除关注: devids={devids}, devdescripts={devdescripts}")
-            return {
-                "success": True,
-                "message": f"已从关注列表移除: devids={devids}, devdescripts={devdescripts}"
-            }
-        else:
-            logger.info(f"不在关注列表中: devids={devids}, devdescripts={devdescripts}")
-            return {
-                "success": False,
-                "message": f"不在关注列表中: devids={devids}, devdescripts={devdescripts}"
-            }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"移除关注失败: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"操作失败: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

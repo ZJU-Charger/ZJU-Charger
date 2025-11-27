@@ -16,7 +16,6 @@
     cd server && python update_stations.py
 
 注意：
-- 需要设置 OPENID 环境变量
 - 会从所有服务商获取站点状态数据，然后提取站点基础信息
 - 如果 stations.json 已存在，会保留其中的 simDevaddress 字段
 """
@@ -44,16 +43,10 @@ async def main():
     logger.info("开始更新站点信息（多服务商架构）")
     logger.info("=" * 60)
     
-    # 检查 OPENID 是否配置
-    openid = Config.get_openid()
-    if not openid:
-        logger.error("OPENID 环境变量未设置，无法更新站点信息")
-        logger.error("请设置 OPENID 环境变量或创建 .env 文件")
-        sys.exit(1)
     
     # 显示可用的服务商
     try:
-        manager = ProviderManager(openid)
+        manager = ProviderManager()
         providers = manager.list_providers()
         logger.info(f"可用服务商: {', '.join([p['name'] for p in providers])}")
     except Exception as e:
@@ -83,10 +76,9 @@ async def main():
         logger.error("=" * 60)
         logger.error("")
         logger.error("请检查：")
-        logger.error("  1. OPENID 是否正确配置")
-        logger.error("  2. 网络连接是否正常")
-        logger.error("  3. 服务商 API 是否可访问")
-        logger.error("  4. 查看上方日志获取详细错误信息")
+        logger.error("  1. 网络连接是否正常")
+        logger.error("  2. 服务商 API 是否可访问")
+        logger.error("  3. 查看上方日志获取详细错误信息")
         sys.exit(1)
 
 if __name__ == "__main__":

@@ -19,11 +19,6 @@ ENV/
 *.swp
 *.swo
 
-# 数据文件（但保留 latest.json 和 watchlist.json）
-data/*.json
-!data/latest.json
-!data/watchlist.json
-
 # 临时文件
 *.log
 logs/

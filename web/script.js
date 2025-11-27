@@ -12,17 +12,21 @@ let currentProvider = "";
 let availableProviders = [];
 
 // 关注列表（devid 和 devdescript 集合）
+// 数据结构：{ devids: [{devid: number, provider: string}], devdescripts: [string] }
 let watchlistDevids = new Set();
 let watchlistDevdescripts = new Set();
 
+// localStorage 键名
+const WATCHLIST_STORAGE_KEY = 'zju_charger_watchlist';
+
 // 校区配置
 const CAMPUS_CONFIG = {
-    2143: { name: "玉泉校区", center: [30.27, 120.12] },
+    2143: { name: "玉泉校区", center: [120.12975093580188,30.27008755710778] },
     1774: { name: "紫金港校区", center: [30.299196, 120.089946] }
 };
 
 // 默认中心点：玉泉校区（BD-09 坐标，会自动转换为 GCJ-02）
-const DEFAULT_CENTER = [30.27, 120.12];
+const DEFAULT_CENTER = [120.12975093580188,30.27008755710778];
 const DEFAULT_ZOOM = 15;
 
 // 地图配置
@@ -188,7 +192,34 @@ function switchMap(mapProvider) {
     
     // 重新渲染所有标记（因为坐标系改变了）
     if (window.currentStations && window.currentStations.length > 0) {
-        renderMap(window.currentStations);
+        // 合并所有站点用于地图显示（包括未抓取的）
+        const allStationsForMap = [...(window.currentStations || [])];
+        if (window.allStationsDef && window.allStationsDef.length > 0) {
+            const fetchedNames = new Set((window.currentStations || []).map(s => s.name));
+            window.allStationsDef.forEach(def => {
+                const devdescript = def.devdescript || def.name;
+                if (!fetchedNames.has(devdescript)) {
+                    const matchesProvider = !currentProvider || def.provider_id === currentProvider;
+                    if (matchesProvider) {
+                        allStationsForMap.push({
+                            name: devdescript,
+                            free: 0,
+                            total: 0,
+                            used: 0,
+                            error: 0,
+                            devids: def.devid ? [def.devid] : [],
+                            provider_id: def.provider_id || 'unknown',
+                            provider_name: def.provider_name || '未知',
+                            campus: def.areaid,
+                            lat: def.latitude,
+                            lon: def.longitude,
+                            isFetched: false
+                        });
+                    }
+                }
+            });
+        }
+        renderMap(allStationsForMap);
     }
     
     console.log(`已切换到: ${provider.name} (${provider.coordSystem})`);
@@ -202,29 +233,72 @@ function updateMapSelector() {
     }
 }
 
-// 获取关注列表
-async function fetchWatchlist() {
+// 从 localStorage 加载关注列表
+function loadWatchlistFromStorage() {
     try {
-        const response = await fetch('/api/watchlist/list');
-        if (response.ok) {
-            const data = await response.json();
-            // 将 devid 列表转换为 Set（确保类型一致，使用数字）
-            watchlistDevids = new Set((data.devids || []).map(d => parseInt(d)));
+        const stored = localStorage.getItem(WATCHLIST_STORAGE_KEY);
+        if (stored) {
+            const data = JSON.parse(stored);
+            // 将 devid 列表转换为 Set（使用字符串键 "devid:provider" 来唯一标识）
+            watchlistDevids.clear();
+            if (data.devids && Array.isArray(data.devids)) {
+                data.devids.forEach(item => {
+                    if (item.devid && item.provider) {
+                        watchlistDevids.add(`${item.devid}:${item.provider}`);
+                    }
+                });
+            }
             // 将 devdescript 列表转换为 Set
             watchlistDevdescripts = new Set(data.devdescripts || []);
             return true;
         }
     } catch (error) {
-        console.error('获取关注列表失败:', error);
+        console.error('加载关注列表失败:', error);
     }
+    // 如果加载失败或不存在，初始化为空
+    watchlistDevids.clear();
+    watchlistDevdescripts.clear();
     return false;
 }
 
+// 保存关注列表到 localStorage
+function saveWatchlistToStorage() {
+    try {
+        // 将 Set 转换为数组格式
+        const devidsArray = [];
+        watchlistDevids.forEach(key => {
+            const [devid, provider] = key.split(':');
+            if (devid && provider) {
+                devidsArray.push({ devid: parseInt(devid), provider: provider });
+            }
+        });
+        
+        const data = {
+            devids: devidsArray,
+            devdescripts: Array.from(watchlistDevdescripts),
+            updated_at: new Date().toISOString()
+        };
+        localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(data));
+        return true;
+    } catch (error) {
+        console.error('保存关注列表失败:', error);
+        return false;
+    }
+}
+
+// 获取关注列表（从 localStorage 读取）
+function fetchWatchlist() {
+    return loadWatchlistFromStorage();
+}
+
 // 检查是否已关注
-function isWatched(devids, devdescript) {
-    // 检查 devid
-    if (devids && devids.length > 0) {
-        const hasDevid = devids.some(devid => watchlistDevids.has(parseInt(devid)));
+function isWatched(devids, devdescript, providerId) {
+    // 检查 devid（需要同时匹配 devid 和 provider）
+    if (devids && devids.length > 0 && providerId) {
+        const hasDevid = devids.some(devid => {
+            const key = `${parseInt(devid)}:${providerId}`;
+            return watchlistDevids.has(key);
+        });
         if (hasDevid) return true;
     }
     // 检查 devdescript
@@ -234,80 +308,170 @@ function isWatched(devids, devdescript) {
     return false;
 }
 
-// 切换关注状态
-async function toggleWatchlist(devids, devdescript) {
-    const currentlyWatched = isWatched(devids, devdescript);
+// 切换关注状态（直接操作 localStorage）
+async function toggleWatchlist(devids, devdescript, providerId) {
+    // 如果没有 devids 和 devdescript，无法操作
+    if ((!devids || devids.length === 0) && !devdescript) {
+        console.error('切换关注状态失败: 缺少 devids 或 devdescript');
+        alert('操作失败: 缺少站点信息');
+        return false;
+    }
+    
+    // 如果有 devids 但没有 providerId，尝试从当前站点数据中查找
+    if (devids && devids.length > 0 && !providerId) {
+        // 尝试从当前站点数据中查找 providerId
+        if (window.currentStations && devdescript) {
+            const station = window.currentStations.find(s => s.name === devdescript);
+            if (station && station.provider_id) {
+                providerId = station.provider_id;
+            }
+        }
+        
+        // 如果仍然没有找到 providerId，只使用 devdescript
+        if (!providerId) {
+            console.warn('无法获取 providerId，将只使用 devdescript 进行关注');
+            // 继续执行，只使用 devdescript
+        }
+    }
+    
+    const currentlyWatched = isWatched(devids, devdescript, providerId);
     
     try {
-        let response;
-        const requestBody = {};
-        if (devids && devids.length > 0) {
-            requestBody.devids = Array.isArray(devids) ? devids : [devids];
-        }
-        if (devdescript) {
-            requestBody.devdescripts = [devdescript];
-        }
-        
         if (currentlyWatched) {
             // 移除关注
-            response = await fetch('/api/watchlist', {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
-        } else {
-            // 添加关注
-            response = await fetch('/api/watchlist', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
-        }
-        
-        if (response.ok) {
-            const result = await response.json();
-            if (result.success !== false) {
-                // 更新本地关注列表
-                if (currentlyWatched) {
-                    // 移除
-                    if (devids && devids.length > 0) {
-                        devids.forEach(devid => watchlistDevids.delete(parseInt(devid)));
-                    }
-                    if (devdescript) {
-                        watchlistDevdescripts.delete(devdescript);
-                    }
-                } else {
-                    // 添加
-                    if (devids && devids.length > 0) {
-                        devids.forEach(devid => watchlistDevids.add(parseInt(devid)));
-                    }
-                    if (devdescript) {
-                        watchlistDevdescripts.add(devdescript);
-                    }
-                }
-                // 重新渲染列表以更新小红心状态
-                if (window.currentStations) {
-                    renderList(window.currentStations);
-                }
-                return true;
-            } else {
-                console.warn('操作失败:', result.message);
-                return false;
+            if (devids && devids.length > 0 && providerId) {
+                devids.forEach(devid => {
+                    const key = `${parseInt(devid)}:${providerId}`;
+                    watchlistDevids.delete(key);
+                });
+            }
+            if (devdescript) {
+                watchlistDevdescripts.delete(devdescript);
             }
         } else {
-            const error = await response.json();
-            console.error('操作失败:', error.detail || '未知错误');
-            alert(`操作失败: ${error.detail || '未知错误'}`);
-            return false;
+            // 添加关注
+            if (devids && devids.length > 0 && providerId) {
+                devids.forEach(devid => {
+                    const key = `${parseInt(devid)}:${providerId}`;
+                    watchlistDevids.add(key);
+                });
+            }
+            if (devdescript) {
+                watchlistDevdescripts.add(devdescript);
+            }
         }
+        
+        // 保存到 localStorage
+        saveWatchlistToStorage();
+        
+        // 重新渲染列表以更新小红心状态
+        if (window.currentStations) {
+            renderList(window.currentStations, window.allStationsDef);
+        }
+        return true;
     } catch (error) {
         console.error('切换关注状态失败:', error);
-        alert(`操作失败: ${error.message}`);
+        alert(`操作失败: ${error.message || '未知错误'}`);
         return false;
+    }
+}
+
+// 获取关注列表站点状态（通过 devid+provider 查询 API）
+async function fetchWatchlistStatus() {
+    try {
+        // 从 localStorage 读取 watchlist
+        loadWatchlistFromStorage();
+        
+        // 按 provider 分组 devid
+        const providerDevidsMap = new Map();
+        watchlistDevids.forEach(key => {
+            const [devid, provider] = key.split(':');
+            if (devid && provider) {
+                if (!providerDevidsMap.has(provider)) {
+                    providerDevidsMap.set(provider, []);
+                }
+                providerDevidsMap.get(provider).push(parseInt(devid));
+            }
+        });
+        
+        // 如果没有 devid，返回空结果
+        if (providerDevidsMap.size === 0 && watchlistDevdescripts.size === 0) {
+            return {
+                updated_at: new Date().toISOString(),
+                stations: []
+            };
+        }
+        
+        // 对每个 provider，调用 API 获取关注站点状态
+        const allStations = [];
+        const promises = [];
+        
+        for (const [provider, devids] of providerDevidsMap.entries()) {
+            // 构建 API URL
+            let apiUrl = `/api/status?provider=${encodeURIComponent(provider)}`;
+            devids.forEach(devid => {
+                apiUrl += `&devid=${devid}`;
+            });
+            
+            // 发起请求
+            promises.push(
+                fetch(apiUrl)
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        }
+                        throw new Error(`API 返回错误: ${response.status}`);
+                    })
+                    .then(data => {
+                        if (data && data.stations) {
+                            allStations.push(...data.stations);
+                        }
+                    })
+                    .catch(error => {
+                        console.error(`获取 ${provider} 的关注站点状态失败:`, error);
+                    })
+            );
+        }
+        
+        // 等待所有请求完成
+        await Promise.all(promises);
+        
+        // 如果还有 devdescript，需要从所有站点中过滤
+        if (watchlistDevdescripts.size > 0) {
+            // 获取所有站点数据
+            try {
+                const allStationsResponse = await fetch('/api/status');
+                if (allStationsResponse.ok) {
+                    const allData = await allStationsResponse.json();
+                    if (allData && allData.stations) {
+                        // 过滤出匹配的站点
+                        const matchedStations = allData.stations.filter(station => {
+                            return watchlistDevdescripts.has(station.name);
+                        });
+                        // 合并到结果中（去重）
+                        const existingNames = new Set(allStations.map(s => s.name));
+                        matchedStations.forEach(station => {
+                            if (!existingNames.has(station.name)) {
+                                allStations.push(station);
+                            }
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('获取所有站点数据失败:', error);
+            }
+        }
+        
+        return {
+            updated_at: new Date().toISOString(),
+            stations: allStations
+        };
+    } catch (error) {
+        console.error('获取关注列表状态失败:', error);
+        return {
+            updated_at: new Date().toISOString(),
+            stations: []
+        };
     }
 }
 
@@ -384,14 +548,26 @@ async function fetchStatus() {
             }
         }
         
+        // 加载所有站点定义（stations.json）
+        let allStationsDef = [];
+        try {
+            const stationsResponse = await fetch('/data/stations.json');
+            if (stationsResponse.ok) {
+                const stationsData = await stationsResponse.json();
+                allStationsDef = stationsData.stations || [];
+            }
+        } catch (error) {
+            console.log('无法加载 stations.json，将只显示已抓取的站点', error);
+        }
+        
         if (data && data.stations) {
-            if (data.stations.length === 0) {
+            if (data.stations.length === 0 && allStationsDef.length === 0) {
                 // 数据为空，显示提示
                 const listEl = document.getElementById('station-list');
                 listEl.innerHTML = `
                     <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg text-center">
                         <p class="font-medium">暂无站点数据</p>
-                        <p class="text-sm mt-2">请确保已配置 OPENID 并成功抓取数据</p>
+                        <p class="text-sm mt-2">请确保服务器已成功抓取数据</p>
                         <p class="text-sm mt-1 text-red-600">如果服务器正在运行，请检查控制台错误信息</p>
                     </div>
                 `;
@@ -399,8 +575,38 @@ async function fetchStatus() {
             } else {
                 // 保存当前数据供校区切换使用
                 window.currentStations = data.stations;
-                renderMap(data.stations);
-                renderList(data.stations);
+                window.allStationsDef = allStationsDef;
+                
+                // 合并所有站点用于地图显示
+                const allStationsForMap = [...data.stations];
+                if (allStationsDef && allStationsDef.length > 0) {
+                    const fetchedNames = new Set(data.stations.map(s => s.name));
+                    allStationsDef.forEach(def => {
+                        const devdescript = def.devdescript || def.name;
+                        if (!fetchedNames.has(devdescript)) {
+                            const matchesProvider = !currentProvider || def.provider_id === currentProvider;
+                            if (matchesProvider) {
+                                allStationsForMap.push({
+                                    name: devdescript,
+                                    free: 0,
+                                    total: 0,
+                                    used: 0,
+                                    error: 0,
+                                    devids: def.devid ? [def.devid] : [],
+                                    provider_id: def.provider_id || 'unknown',
+                                    provider_name: def.provider_name || '未知',
+                                    campus: def.areaid,
+                                    lat: def.latitude,
+                                    lon: def.longitude,
+                                    isFetched: false
+                                });
+                            }
+                        }
+                    });
+                }
+                
+                renderMap(allStationsForMap);
+                renderList(data.stations, allStationsDef);
                 updateTime(data.updated_at);
             }
         } else {
@@ -415,9 +621,8 @@ async function fetchStatus() {
                 <p class="text-sm mt-2 text-red-600">
                     请检查：<br>
                     1. 服务器是否正在运行<br>
-                    2. OPENID 环境变量是否已配置<br>
-                    3. 网络连接是否正常<br>
-                    4. 查看浏览器控制台获取详细错误信息
+                    2. 网络连接是否正常<br>
+                    3. 查看浏览器控制台获取详细错误信息
                 </p>
             </div>
         `;
@@ -526,16 +731,23 @@ function renderMap(stations) {
         `;
     }
     
-    // 显示所有站点（包括非空闲的）
+    // 显示所有站点（包括非空闲的和未抓取的）
     filteredStations.forEach(station => {
-        const { name, lat, lon, free, total, provider_id, provider_name } = station;
+        const { name, lat, lon, free, total, provider_id, provider_name, isFetched } = station;
+        
+        // 如果没有坐标，跳过
+        if (!lat || !lon) {
+            return;
+        }
         
         // 坐标转换
         const [markerLat, markerLon] = convertCoord(lat, lon);
         
         // 根据空闲数量选择颜色（统一的颜色方案）
         let color = '#10b981'; // 绿色：有空闲（更柔和的绿色）
-        if (free === 0) {
+        if (isFetched === false) {
+            color = '#9ca3af'; // 灰色：未抓取到
+        } else if (free === 0) {
             color = '#ef4444'; // 红色：无空闲
         } else if (free <= 2) {
             color = '#f59e0b'; // 橙色：少量空闲
@@ -545,7 +757,8 @@ function renderMap(stations) {
         const shape = providerShapes[provider_id] || 'circle';
         
         // 创建带数字的自定义图标（使用不同形状）
-        const iconHtml = createMarkerIcon(color, shape, free);
+        const displayNumber = isFetched === false ? '?' : free;
+        const iconHtml = createMarkerIcon(color, shape, displayNumber);
         
         const customIcon = L.divIcon({
             html: iconHtml,
@@ -560,16 +773,28 @@ function renderMap(stations) {
         }).addTo(map);
         
         // 添加弹出窗口（显示服务商信息）
-        const freeColor = free === 0 ? '#ef4444' : '#10b981';
-        marker.bindPopup(`
-            <div style="text-align: center; min-width: 120px;">
-                <strong style="font-size: 14px;">${name}</strong><br>
-                <span style="font-size: 11px; color: #6b7280;">${provider_name || provider_id}</span><br>
-                <span style="font-size: 13px; margin-top: 4px; display: inline-block;">
-                    可用: <span style="color: ${freeColor}; font-weight: bold;">${free}</span> / ${total}
-                </span>
-            </div>
-        `);
+        if (isFetched === false) {
+            marker.bindPopup(`
+                <div style="text-align: center; min-width: 120px;">
+                    <strong style="font-size: 14px;">${name}</strong><br>
+                    <span style="font-size: 11px; color: #6b7280;">${provider_name || provider_id}</span><br>
+                    <span style="font-size: 13px; margin-top: 4px; display: inline-block; color: #9ca3af;">
+                        未抓取到数据
+                    </span>
+                </div>
+            `);
+        } else {
+            const freeColor = free === 0 ? '#ef4444' : '#10b981';
+            marker.bindPopup(`
+                <div style="text-align: center; min-width: 120px;">
+                    <strong style="font-size: 14px;">${name}</strong><br>
+                    <span style="font-size: 11px; color: #6b7280;">${provider_name || provider_id}</span><br>
+                    <span style="font-size: 13px; margin-top: 4px; display: inline-block;">
+                        可用: <span style="color: ${freeColor}; font-weight: bold;">${free}</span> / ${total}
+                    </span>
+                </div>
+            `);
+        }
         
         markers.push(marker);
     });
@@ -587,15 +812,64 @@ function renderMap(stations) {
 }
 
 // 渲染列表
-function renderList(stations) {
+function renderList(stations, allStationsDef = []) {
     const listEl = document.getElementById('station-list');
     
+    // 创建已抓取站点的映射（使用 name 作为键）
+    const fetchedStationsMap = new Map();
+    stations.forEach(s => {
+        fetchedStationsMap.set(s.name, s);
+    });
+    
+    // 合并所有站点：已抓取的和未抓取的
+    const allStations = [];
+    
+    // 添加已抓取的站点
+    stations.forEach(s => {
+        allStations.push({ ...s, isFetched: true });
+    });
+    
+    // 添加未抓取的站点（从 stations.json）
+    if (allStationsDef && allStationsDef.length > 0) {
+        allStationsDef.forEach(def => {
+            const devdescript = def.devdescript || def.name;
+            // 如果这个站点没有被抓取到，添加为未抓取状态
+            if (!fetchedStationsMap.has(devdescript)) {
+                // 检查是否匹配当前过滤条件
+                const matchesProvider = !currentProvider || def.provider_id === currentProvider;
+                const matchesCampus = !currentCampus || (def.areaid && def.areaid.toString() === currentCampus);
+                
+                if (matchesProvider && matchesCampus) {
+                    allStations.push({
+                        name: devdescript,
+                        free: 0,
+                        total: 0,
+                        used: 0,
+                        error: 0,
+                        devids: def.devid ? [def.devid] : [],
+                        provider_id: def.provider_id || 'unknown',
+                        provider_name: def.provider_name || '未知',
+                        campus: def.areaid,
+                        lat: def.latitude,
+                        lon: def.longitude,
+                        isFetched: false
+                    });
+                }
+            }
+        });
+    }
+    
     // 按校区和服务商过滤
-    let filteredStations = filterStationsByCampus(stations);
+    let filteredStations = filterStationsByCampus(allStations);
     filteredStations = filterStationsByProvider(filteredStations);
     
-    // 按空闲数量排序
-    const sortedStations = [...filteredStations].sort((a, b) => b.free - a.free);
+    // 按空闲数量排序（未抓取的排在最后）
+    const sortedStations = [...filteredStations].sort((a, b) => {
+        if (a.isFetched !== b.isFetched) {
+            return a.isFetched ? -1 : 1; // 已抓取的排在前面
+        }
+        return b.free - a.free;
+    });
     
     if (sortedStations.length === 0) {
         listEl.innerHTML = '<div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg text-center">暂无站点数据</div>';
@@ -603,7 +877,7 @@ function renderList(stations) {
     }
     
     listEl.innerHTML = sortedStations.map(station => {
-        const { name, free, total, used, error, devids, provider_id, provider_name, campus } = station;
+        const { name, free, total, used, error, devids, provider_id, provider_name, campus, isFetched } = station;
         
         // 计算使用率
         const usagePercent = total > 0 ? (used / total) * 100 : 0;
@@ -616,18 +890,21 @@ function renderList(stations) {
         // 检查是否没有可用充电桩
         const isUnavailable = free === 0;
         
+        // 检查是否未抓取到
+        const isNotFetched = isFetched === false;
+        
         // 优化背景和边框配色
-        const itemBgClass = 'bg-white';
-        const itemBorderClass = 'border-gray-200';
-        const itemHoverBorderClass = isUnavailable ? '' : 'hover:border-blue-400';
-        const itemHoverBgClass = isUnavailable ? '' : 'hover:bg-blue-50';
-        const cursorClass = isUnavailable ? 'cursor-not-allowed' : 'cursor-pointer';
-        const grayscaleClass = isUnavailable ? 'grayscale opacity-60' : '';
-        const hoverEffect = isUnavailable ? '' : 'hover:translate-x-1 hover:shadow-md';
+        const itemBgClass = isNotFetched ? 'bg-gray-100' : 'bg-white';
+        const itemBorderClass = isNotFetched ? 'border-gray-300' : 'border-gray-200';
+        const itemHoverBorderClass = (isUnavailable || isNotFetched) ? '' : 'hover:border-blue-400';
+        const itemHoverBgClass = (isUnavailable || isNotFetched) ? '' : 'hover:bg-blue-50';
+        const cursorClass = (isUnavailable || isNotFetched) ? 'cursor-not-allowed' : 'cursor-pointer';
+        const grayscaleClass = (isUnavailable || isNotFetched) ? 'grayscale opacity-60' : '';
+        const hoverEffect = (isUnavailable || isNotFetched) ? '' : 'hover:translate-x-1 hover:shadow-md';
         
         // 检查是否已关注
         const stationDevids = devids || [];
-        const watched = isWatched(stationDevids, name);
+        const watched = isWatched(stationDevids, name, provider_id);
         const heartAnimationClass = watched ? 'animate-pulse' : '';
         const heartSymbol = watched ? '❤️' : '🤍';
         
@@ -648,27 +925,36 @@ function renderList(stations) {
         // 站点名称截断（最多显示20个字符）
         const displayName = name.length > 20 ? name.substring(0, 20) + '...' : name;
         
+        const titleText = isNotFetched ? '未抓取到数据' : (isUnavailable ? '暂无可用充电桩' : name);
+        
         return `
-            <div class="p-4 border ${itemBorderClass} rounded-lg ${itemBgClass} transition-all duration-200 ${cursorClass} ${itemHoverBorderClass} ${itemHoverBgClass} ${hoverEffect} ${grayscaleClass}" data-name="${name}" data-available="${!isUnavailable}" title="${isUnavailable ? '暂无可用充电桩' : name}">
+            <div class="p-4 border ${itemBorderClass} rounded-lg ${itemBgClass} transition-all duration-200 ${cursorClass} ${itemHoverBorderClass} ${itemHoverBgClass} ${hoverEffect} ${grayscaleClass}" data-name="${name}" data-available="${!isUnavailable && !isNotFetched}" data-provider-id="${provider_id || ''}" title="${titleText}">
                 <!-- 站点名称和关注按钮 -->
                 <div class="flex justify-between items-start mb-3 gap-2">
-                    <span class="font-semibold text-base text-gray-900 truncate flex-1" title="${name}">${displayName}</span>
+                    <span class="font-semibold text-base ${isNotFetched ? 'text-gray-500' : 'text-gray-900'} truncate flex-1" title="${name}">${displayName}</span>
                     <span class="text-lg cursor-pointer select-none transition-transform duration-200 hover:scale-125 flex-shrink-0 p-0.5 leading-none ${heartAnimationClass}" data-devids='${devidsJson}' data-devdescript="${name}" title="${watched ? '取消关注' : '添加关注'}">${heartSymbol}</span>
                 </div>
                 
                 <!-- 颜色条：显示使用情况（可用部分在最左侧） -->
                 <div class="mb-3">
-                    <div class="h-3 bg-gray-200 rounded-full overflow-hidden flex">
-                        ${free > 0 ? `<div style="background-color: ${barColor}; width: ${freePercent}%"></div>` : ''}
-                        ${used > 0 ? `<div class="bg-gray-400" style="width: ${usagePercent}%"></div>` : ''}
-                        ${error > 0 ? `<div class="bg-red-500" style="width: ${errorPercent}%"></div>` : ''}
-                    </div>
-                    <div class="flex justify-between items-center mt-1 text-xs text-gray-500">
-                        <span>可用: ${free}</span>
-                        <span>已用: ${used}</span>
-                        <span>共计: ${total}</span>
-                        ${error > 0 ? `<span class="text-red-600">故障: ${error}</span>` : ''}
-                    </div>
+                    ${isNotFetched ? `
+                        <div class="h-3 bg-gray-300 rounded-full"></div>
+                        <div class="flex justify-between items-center mt-1 text-xs text-gray-400">
+                            <span>未抓取到数据</span>
+                        </div>
+                    ` : `
+                        <div class="h-3 bg-gray-200 rounded-full overflow-hidden flex">
+                            ${free > 0 ? `<div style="background-color: ${barColor}; width: ${freePercent}%"></div>` : ''}
+                            ${used > 0 ? `<div class="bg-gray-400" style="width: ${usagePercent}%"></div>` : ''}
+                            ${error > 0 ? `<div class="bg-red-500" style="width: ${errorPercent}%"></div>` : ''}
+                        </div>
+                        <div class="flex justify-between items-center mt-1 text-xs text-gray-500">
+                            <span>可用: ${free}</span>
+                            <span>已用: ${used}</span>
+                            <span>共计: ${total}</span>
+                            ${error > 0 ? `<span class="text-red-600">故障: ${error}</span>` : ''}
+                        </div>
+                    `}
                 </div>
                 
                 <!-- 标签：校区和供应商 -->
@@ -689,20 +975,47 @@ function renderList(stations) {
         if (heartIcon) {
             heartIcon.addEventListener('click', async (e) => {
                 e.stopPropagation(); // 阻止事件冒泡
-                // 从 data 属性获取 devid 列表和 devdescript
+                // 从 data 属性获取 devid 列表、devdescript 和 provider_id
                 const devidsJson = heartIcon.getAttribute('data-devids');
                 const devdescript = heartIcon.getAttribute('data-devdescript');
                 
-                let devids = null;
-                if (devidsJson) {
-                    try {
-                        devids = JSON.parse(devidsJson);
-                    } catch (error) {
-                        console.error('解析 devids 失败:', error);
+                // 优先从 data-provider-id 属性获取
+                let providerId = item.getAttribute('data-provider-id');
+                
+                // 如果 data-provider-id 为空，尝试从当前站点数据中查找
+                if (!providerId && window.currentStations) {
+                    const station = window.currentStations.find(s => s.name === stationName);
+                    if (station && station.provider_id) {
+                        providerId = station.provider_id;
                     }
                 }
                 
-                await toggleWatchlist(devids, devdescript);
+                // 如果还是没有，尝试从 allStationsDef 中查找
+                if (!providerId && window.allStationsDef) {
+                    const stationDef = window.allStationsDef.find(def => {
+                        const defName = def.devdescript || def.name;
+                        return defName === stationName;
+                    });
+                    if (stationDef && stationDef.provider_id) {
+                        providerId = stationDef.provider_id;
+                    }
+                }
+                
+                let devids = null;
+                if (devidsJson && devidsJson !== 'null' && devidsJson !== '[]') {
+                    try {
+                        devids = JSON.parse(devidsJson);
+                        // 确保 devids 是数组且不为空
+                        if (!Array.isArray(devids) || devids.length === 0) {
+                            devids = null;
+                        }
+                    } catch (error) {
+                        console.error('解析 devids 失败:', error);
+                        devids = null;
+                    }
+                }
+                
+                await toggleWatchlist(devids, devdescript, providerId);
             });
         }
         
@@ -775,7 +1088,34 @@ function setupCampusSelector() {
             currentCampus = btn.dataset.campus || "";
             // 重新渲染（使用已加载的数据）
             if (window.currentStations) {
-                renderMap(window.currentStations);
+                // 合并所有站点用于地图显示（包括未抓取的）
+        const allStationsForMap = [...(window.currentStations || [])];
+        if (window.allStationsDef && window.allStationsDef.length > 0) {
+            const fetchedNames = new Set((window.currentStations || []).map(s => s.name));
+            window.allStationsDef.forEach(def => {
+                const devdescript = def.devdescript || def.name;
+                if (!fetchedNames.has(devdescript)) {
+                    const matchesProvider = !currentProvider || def.provider_id === currentProvider;
+                    if (matchesProvider) {
+                        allStationsForMap.push({
+                            name: devdescript,
+                            free: 0,
+                            total: 0,
+                            used: 0,
+                            error: 0,
+                            devids: def.devid ? [def.devid] : [],
+                            provider_id: def.provider_id || 'unknown',
+                            provider_name: def.provider_name || '未知',
+                            campus: def.areaid,
+                            lat: def.latitude,
+                            lon: def.longitude,
+                            isFetched: false
+                        });
+                    }
+                }
+            });
+        }
+        renderMap(allStationsForMap);
                 renderList(window.currentStations);
             }
         });
@@ -794,8 +1134,35 @@ function setupProviderSelector() {
             } else {
                 // 如果选择"全部"，使用已加载的数据重新渲染
                 if (window.currentStations) {
-                    renderMap(window.currentStations);
-                    renderList(window.currentStations);
+                    // 合并所有站点用于地图显示（包括未抓取的）
+        const allStationsForMap = [...(window.currentStations || [])];
+        if (window.allStationsDef && window.allStationsDef.length > 0) {
+            const fetchedNames = new Set((window.currentStations || []).map(s => s.name));
+            window.allStationsDef.forEach(def => {
+                const devdescript = def.devdescript || def.name;
+                if (!fetchedNames.has(devdescript)) {
+                    const matchesProvider = !currentProvider || def.provider_id === currentProvider;
+                    if (matchesProvider) {
+                        allStationsForMap.push({
+                            name: devdescript,
+                            free: 0,
+                            total: 0,
+                            used: 0,
+                            error: 0,
+                            devids: def.devid ? [def.devid] : [],
+                            provider_id: def.provider_id || 'unknown',
+                            provider_name: def.provider_name || '未知',
+                            campus: def.areaid,
+                            lat: def.latitude,
+                            lon: def.longitude,
+                            isFetched: false
+                        });
+                    }
+                }
+            });
+        }
+        renderMap(allStationsForMap);
+                    renderList(window.currentStations, window.allStationsDef);
                 }
             }
         });
@@ -847,13 +1214,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadConfig();
     // 先加载服务商列表
     await loadProviders();
-    // 先加载关注列表，再获取站点状态
-    await fetchWatchlist();
+    // 先加载关注列表（从 localStorage），再获取站点状态
+    fetchWatchlist();
     fetchStatus();
     
     // 使用配置的间隔自动刷新
-    setInterval(async () => {
-        await fetchWatchlist();
+    setInterval(() => {
+        fetchWatchlist(); // 从 localStorage 读取，不需要 await
         fetchStatus();
     }, fetchInterval * 1000); // 转换为毫秒
 });

@@ -21,20 +21,17 @@ def _get_timestamp():
     tz_utc_8 = timezone(timedelta(hours=8))
     return datetime.now(tz_utc_8).isoformat()
 
-async def fetch_stations_from_providers(openid: str) -> Optional[List[Dict[str, Any]]]:
+async def fetch_stations_from_providers() -> Optional[List[Dict[str, Any]]]:
     """从所有服务商获取站点列表
     
     通过获取站点状态数据，从中提取站点基础信息
     注意：需要从现有的 stations.json 中获取 simDevaddress（如果存在）
     
-    Args:
-        openid: 微信 openId
-    
     Returns:
         站点列表，格式与 stations.json 兼容，如果失败返回 None
     """
     try:
-        manager = ProviderManager(openid)
+        manager = ProviderManager()
         
         # 加载现有的 stations.json（如果存在），用于获取 simDevaddress
         existing_stations_map = {}
@@ -200,13 +197,8 @@ async def refresh_stations():
     Returns:
         是否成功
     """
-    openid = Config.get_openid()
-    if not openid:
-        logger.error("OPENID 未设置，无法获取站点信息")
-        return False
-    
     logger.info("开始从所有服务商获取站点信息...")
-    stations = await fetch_stations_from_providers(openid)
+    stations = await fetch_stations_from_providers()
     
     if stations is None:
         logger.error("获取站点信息失败")

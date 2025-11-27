@@ -16,20 +16,15 @@ class ProviderManager:
     负责注册、管理和调用所有服务商适配器
     """
     
-    def __init__(self, openid: str):
-        """初始化服务商管理器
-        
-        Args:
-            openid: 微信 openId（某些服务商可能需要）
-        """
-        self.openid = openid
+    def __init__(self):
+        """初始化服务商管理器"""
         self.providers: List[ProviderBase] = []
         self._register_providers()
     
     def _register_providers(self):
         """注册所有可用服务商"""
         # 注册尼普顿服务商
-        neptune = NeptuneProvider(self.openid)
+        neptune = NeptuneProvider()
         self.providers.append(neptune)
         logger.info(f"已注册服务商: {neptune.provider_name} ({neptune.provider_id})")
     
@@ -126,19 +121,9 @@ class ProviderManager:
             if result["status"] != "success" or result["data"] is None:
                 continue
             
-            provider = self.get_provider(provider_id)
-            if provider is None:
-                continue
-            
-            site_stats = result["data"].get("site_stats", {})
-            
-            # 将每个站点转换为统一格式
-            for site_name, stats in site_stats.items():
-                normalized = provider.normalize_station({
-                    "site_name": site_name,
-                    "site_stats": stats
-                })
-                all_stations.append(normalized)
+            # fetch_status 现在直接返回统一格式的站点列表
+            if isinstance(result["data"], list):
+                all_stations.extend(result["data"])
         
         return all_stations
     
@@ -168,18 +153,9 @@ class ProviderManager:
                 return None
             
             async with provider:
-                status_data = await provider.fetch_status()
-                if status_data is None:
+                stations = await provider.fetch_status()
+                if stations is None:
                     return None
-                
-                site_stats = status_data.get("site_stats", {})
-                stations = []
-                for site_name, stats in site_stats.items():
-                    normalized = provider.normalize_station({
-                        "site_name": site_name,
-                        "site_stats": stats
-                    })
-                    stations.append(normalized)
                 
                 return {
                     "updated_at": self._get_timestamp(),

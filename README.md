@@ -1,6 +1,6 @@
 # ZJU Charger
 
-> 基于 FastAPI 的浙江大学充电桩状态查询系统，支持多个充电桩服务商（当前支持尼普顿），实现充电桩状态查询、关注列表、钉钉机器人交互等功能。
+> 基于 FastAPI 的浙江大学充电桩状态查询系统，支持多个充电桩服务商（当前支持尼普顿），实现充电桩状态查询、前端关注列表、钉钉机器人交互等功能。
 
 免责声明：本项目仅用于个人学习交流，不得用于商业用途。使用本项目所造成的任何后果，由使用者自行承担。
 
@@ -15,7 +15,7 @@ flowchart TD
 
     C["FastAPI API 服务<br/>/api/status 实时查询<br/>支持多服务商筛选"]
 
-    D["钉钉机器人<br/>查询 / 关注 / 全部"]
+    D["钉钉机器人<br/>全部"]
 
     E["ProviderManager<br/>服务商管理器"]
 
@@ -48,8 +48,9 @@ flowchart TD
 - [x] 支持高德地图、OpenStreetMap 三种地图
 - [x] 服务商筛选功能（前端下拉框）
 - [x] 校区筛选功能（玉泉、紫金港）
+- [x] 前端关注列表功能（使用 localStorage，支持 devid+provider 查询）
 - [ ] 使用 ChinaTMSProviders 插件，支持多种地图
-- [ ] 钉钉机器人交互（查询/关注/全部）
+- [ ] 钉钉机器人交互（全部）
 - [ ] GitHub Action 自动定时抓取
 - [ ] GitHub Pages 静态部署支持
 
@@ -82,13 +83,11 @@ project/
 │   └── style.css             # 样式文件
 ├── data/                     # 数据目录
 │   ├── latest.json           # 最新状态缓存（统一格式，包含 provider_id）
-│   ├── stations.json          # 站点信息（包含 campus 字段）
-│   └── watchlist.json        # 用户关注列表
+│   └── stations.json          # 站点信息（包含 campus 字段）
 ├── script/                   # iOS 快捷指令
 │   ├── README.md             # 快捷指令使用说明
 │   └── *.shortcut            # 快捷指令文件
 ├── run_server.py             # 服务器启动脚本
-├── quick_query.py            # 快速查询脚本
 └── requirements.txt         # 依赖库
 ```
 
@@ -160,6 +159,11 @@ pip install -r requirements.txt
 - 在小程序中，openID 是小程序的普通用户的一个唯一的标识，只针对当前的小程序有效
 - 同理在公众号中 openID 是公众号的普通用户的一个唯一的标识，只针对当前的公众号有效
 
+**建议收集多个 openID**：为了防止账号被封禁，建议使用多个 openID 进行轮询。你可以：
+- 使用不同的设备抓取不同的 openID
+- 使用不同的微信账号抓取不同的 openID
+- 每个供应商可以配置多个 openID，系统会自动轮询使用
+
 下面以 iOS 系统为例，展示如何抓取 OpenID。
 
 1. 下载[Stream](https://apps.apple.com/us/app/stream/id1312141691?l=zh-Hans-CN)
@@ -169,12 +173,41 @@ pip install -r requirements.txt
 5. 点击抓包历史，找到尼普顿小程序的请求，点击请求头，找到 openid 参数
 6. 复制 openid 参数值，即为 OpenID
 
-### 3. 配置环境变量
+重复以上步骤，使用不同设备或账号收集多个 openID。
+
+### 3. 配置 OpenID
+
+有两种方式配置 openID：
+
+#### 方式一：使用 secret.json（推荐，支持轮询）
+
+使用交互式脚本添加 openID：
+
+```bash
+python add_openid.py
+```
+
+脚本会引导你：
+1. 选择供应商（如 neptune）
+2. 输入 openID
+3. 自动保存到 `secret.json`
+
+你也可以手动创建 `secret.json` 文件（项目根目录）：
+
+```json
+{
+  "neptune": ["openid1", "openid2", "openid3"]
+}
+```
+
+**轮询机制**：每次后端定时抓取时，系统会自动切换到下一个 openID，有效防止账号被封禁。
+
+#### 方式二：使用环境变量（向后兼容）
 
 编辑 `.env` 文件：
 
 ```env
-# 微信 openId（必需）
+# 微信 openId（必需，如果未配置 secret.json）
 OPENID=your_openid_here
 
 # 钉钉机器人配置（可选）
@@ -190,7 +223,7 @@ FETCH_INTERVAL=60 # 前端自动刷新间隔（秒），默认60秒
 BACKEND_FETCH_INTERVAL=300 # 后端定时抓取间隔（秒），默认300秒（5分钟）
 ```
 
-参数获取方法：通过抓包获取微信小程序中的请求参数。
+**优先级**：如果同时配置了 `secret.json` 和环境变量，系统会优先使用 `secret.json` 中的配置。
 
 ### 4. 更新站点信息（可选）
 
@@ -210,15 +243,14 @@ python run_server.py
 
 访问 `http://localhost:8000/web/` 查看效果
 
-### 6. 快速查询关注列表站点状态
+### 6. 前端关注列表功能
 
-如果只想查询关注列表站点状态，也可以运行：
+前端支持关注列表功能，数据存储在浏览器的 localStorage 中：
 
-```bash
-python quick_query.py
-```
-
-实现命令行查询关注列表站点状态。
+- **添加关注**：点击站点列表中的心形图标（🤍）即可添加关注
+- **取消关注**：再次点击已关注的站点的心形图标（❤️）即可取消关注
+- **数据存储**：关注列表数据存储在浏览器的 localStorage 中，不会上传到服务器
+- **查询方式**：前端通过 `devid+provider` 参数调用 `/api/status` API 来获取关注站点的状态
 
 ### Docker 部署（TODO: 待实现）
 

@@ -76,10 +76,6 @@ class DingBot:
         
         return message
     
-    def format_watchlist_message(self, data):
-        """格式化关注列表消息"""
-        return self.format_status_message(data, show_all=False)
-    
     def send_status_message(self, time, json_content):
         """发送状态消息（旧格式，向后兼容）"""
         if not json_content:

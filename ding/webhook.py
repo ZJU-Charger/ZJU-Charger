@@ -11,7 +11,7 @@ from pathlib import Path
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from ding.commands import parse_command, execute_query_command, execute_all_command, execute_watch_command
+from ding.commands import parse_command, execute_all_command
 from ding.bot import DingBot
 from server.config import Config
 
@@ -71,16 +71,7 @@ async def ding_webhook(
     bot = DingBot(Config.DINGTALK_WEBHOOK, Config.DINGTALK_SECRET)
     
     # 执行命令
-    if command_type == "query":
-        # 查询关注列表
-        result = await execute_query_command()
-        if "error" in result:
-            bot.send_text(f"查询失败: {result['error']}")
-        else:
-            message = bot.format_watchlist_message(result)
-            bot.send_markdown("关注站点状态", message)
-    
-    elif command_type == "all":
+    if command_type == "all":
         # 查询所有站点
         result = await execute_all_command()
         if "error" in result:
@@ -89,24 +80,10 @@ async def ding_webhook(
             message = bot.format_status_message(result, show_all=True)
             bot.send_markdown("全部站点状态", message)
     
-    elif command_type == "watch":
-        # 添加关注
-        result = await execute_watch_command(args)
-        if "error" in result:
-            error_msg = result["error"]
-            if "available_sites" in result:
-                error_msg += f"\n可用站点: {', '.join(result['available_sites'])}"
-            bot.send_text(error_msg)
-        else:
-            bot.send_text(result.get("message", "操作成功"))
-    
     else:
         # 未知命令
         help_text = """可用命令：
-- 查询：查看关注列表站点状态
-- 全部：查看所有站点状态
-- 关注 站点名：添加站点到关注列表
-例如：关注 教七"""
+- 全部：查看所有站点状态"""
         bot.send_text(help_text)
     
     return {"errcode": 0, "errmsg": "ok"}
