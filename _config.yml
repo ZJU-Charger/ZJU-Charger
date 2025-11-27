@@ -1,0 +1,39 @@
+title: ZJU Charger
+
+author:
+  name: Phil Fan
+  email: hw.phil.fan@gmail.com
+description: 查询小龟充电桩状态
+
+theme: minima
+
+plugins:
+ - jekyll-feed
+ - jekyll-seo-tag
+
+sass:
+  quiet_deps: true
+  silence_deprecations: [import]
+
+minima:
+  skin: dark
+  nav_pages:
+    - README.md
+    - docs/01-quick-start.md
+    - docs/02-web-deployment.md
+    - docs/03-server-deployment.md
+    - docs/04-fetcher.md
+    - docs/05-dingbot.md
+    - docs/06-script-shortcuts.md
+
+  show_excerpts: false
+  date_format: "%b-%d-%Y"
+  social_links:
+    - title: GitHub
+      icon: github
+      url: "https://github.com/Phil-Fan"
+    - title: Gmail
+      icon: envelope
+      url: "mailto:hw.phil.fan@gmail.com"
+
+  hide_site_feed_link: true

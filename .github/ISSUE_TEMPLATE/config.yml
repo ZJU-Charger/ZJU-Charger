@@ -1,0 +1,9 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 文档
+    url: https://github.com/Phil-Fan/ZJU-Charger/tree/main/docs
+    about: 查看项目文档
+  - name: 讨论
+    url: https://github.com/Phil-Fan/ZJU-Charger/discussions
+    about: 在讨论区提问和交流
+

@@ -23,7 +23,8 @@ class ProviderBase(ABC):
     
     @abstractmethod
     async def fetch_stations(self, **kwargs) -> Optional[List[Dict[str, Any]]]:
-        """获取站点列表
+        """
+        从 data/stations.json 中获取站点列表
         
         Returns:
             站点列表，如果失败返回 None
@@ -41,7 +42,7 @@ class ProviderBase(ABC):
             - provider_name: 服务商显示名称
             - id: 站点唯一标识（用于聚合和查询）
             - name: 站点名称
-            - campus: 校区ID（原 areaid）
+            - campus: 校区ID
             - lat: 纬度
             - lon: 经度
             - free: 可用数量
@@ -53,7 +54,8 @@ class ProviderBase(ABC):
     
     @abstractmethod
     def gen_area_hash(self, *args, **kwargs) -> str:
-        """生成充电区域的 hash 值
+        """
+        生成充电区域的 8位 hash 值，用于聚合和查询
         
         用于标识一个充电区域，相同区域的不同设备应该返回相同的 hash。
         通常使用 provider_name、site_name 和 devaddress 的组合来生成。
@@ -64,7 +66,6 @@ class ProviderBase(ABC):
             devaddress: 设备地址
             
         Returns:
-            hash 字符串，用于标识充电区域
+            8位hash 字符串，用于标识充电区域
         """
         pass
-

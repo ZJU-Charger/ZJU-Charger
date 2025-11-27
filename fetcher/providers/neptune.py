@@ -238,5 +238,5 @@ class NeptuneProvider(ProviderBase):
         # 相同 site_name 的设备属于同一个充电区域，会返回相同的 hash
         hash_input = f"{provider_name}:{site_name}"
         hash_obj = hashlib.md5(hash_input.encode('utf-8'))
-        return hash_obj.hexdigest()
+        return hash_obj.hexdigest()[:8]
     
