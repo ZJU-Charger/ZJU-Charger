@@ -6,29 +6,29 @@
 
 ## 系统架构
 
-```text
-+-----------+       +--------------------------+         +----------------+
-| 本地网页  | <---> |    FastAPI API 服务     |   <----> |   钉钉机器人   |
-| index.html|  ajax | /api/status 实时查询     | webhook |  查询/关注/全部 |
-+-----------+       +------------+-------------+         +----------------+
-                                 ^
-                                 |
-                                 v
-                      +----------------------+
-                      |    Fetcher（实时）   |
-                      +----------------------+
-                                 ^
-                                 |
-                                 |
-                     +-----------+------------+
-                     |      iOS 快捷指令       |
-                     |------------------------|
-                     | 1. 关注点快速查询         |
-                     +------------------------+
+```mermaid
+flowchart TD
 
+    A["iOS 快捷指令<br/>1. 关注点快速查询"]
+
+    B["本地网页<br/>index.html<br/>(AJAX)"]
+
+    C["FastAPI API 服务<br/>/api/status 实时查询"]
+
+    D["钉钉机器人<br/>查询 / 关注 / 全部"]
+
+    E["Fetcher<br/>实时抓取"]
+
+    %% 连接关系
+    A --> |查询| C
+
+    B <--> |AJAX| C
+
+    D --> |webhook| C
+
+    C --> |使用数据| E
+    E --> |实时数据写入| C
 ```
-
-- 地图使用 OpenStreetMap 瓦片图层，并使用 WGS84 坐标系，为解决国内地图坐标偏移问题，使用了 [wandergis/coordtransform](https://github.com/wandergis/coordtransform) 提供了百度坐标（BD09）、国测局坐标（火星坐标，GCJ02）、和WGS84坐标系之间的转换函数
 
 所有查询来源（网页、钉钉、GitHub Action）都调用统一 API 和 Fetcher，逻辑完全不重复。
 
@@ -62,7 +62,7 @@ project/
 │   ├── webhook.py        # 钉钉 webhook 路由
 │   └── commands.py       # 命令解析和执行
 ├── web/                  # 前端文件
-│   ├── index.html        # 地图+列表页面
+│   ├── index.html        # 地图 + 列表页面
 │   ├── script.js         # 前端逻辑
 │   └── style.css         # 样式文件
 ├── data/                 # 数据目录
@@ -87,8 +87,8 @@ pip install -r requirements.txt
 
 为了识别用户，每个用户针对每个公众号或小程序等应用会产生一个安全的 OpenID
 
-- 在小程序中，openID是小程序的普通用户的一个唯一的标识，只针对当前的小程序有效
-- 同理在公众号中openID是公众号的普通用户的一个唯一的标识，只针对当前的公众号有效
+- 在小程序中，openID 是小程序的普通用户的一个唯一的标识，只针对当前的小程序有效
+- 同理在公众号中 openID 是公众号的普通用户的一个唯一的标识，只针对当前的公众号有效
 
 下面以 iOS 系统为例，展示如何抓取 OpenID。
 
@@ -118,13 +118,33 @@ API_PORT=8000 # 服务器端口
 
 参数获取方法：通过抓包获取微信小程序中的请求参数。
 
-### 4. 运行
+### 4. 更新站点信息（可选）
+
+站点信息存储在 `data/stations.json` 中。首次运行或需要更新站点信息时，运行：
+
+```bash
+python server/update_stations.py
+```
+
+**注意**：服务器启动时不会自动更新站点信息，需要手动运行此脚本。
+
+### 5. 运行服务器（前后端一体）
 
 ```bash
 python run_server.py
 ```
 
 访问 `http://localhost:8000/web/` 查看效果
+
+### 6. 快速查询关注列表站点状态
+
+如果只想查询关注列表站点状态，也可以运行：
+
+```bash
+python quick_query.py
+```
+
+实现命令行查询关注列表站点状态。
 
 ### Docker 部署（TODO: 待实现）
 
@@ -138,8 +158,8 @@ python run_server.py
 
 ## 致谢
 
-- 感谢 [cyc-987/Charge-in-ZJU: 浙大充电桩查询](https://github.com/cyc-987/Charge-in-ZJU) 的原作者 [@cyc-987](https://github.com/cyc-987)，为该项目提供了基础功能和灵感
-- 使用 [leaflet-echarts](https://github.com/wandergis/leaflet-echarts)
-- 使用 [wandergis/coordtransform](https://github.com/wandergis/coordtransform) 提供了百度坐标（BD09）、国测局坐标（火星坐标，GCJ02）、和WGS84坐标系之间的转换函数
-- 使用 [htoooth/Leaflet.ChineseTmsProviders](https://github.com/htoooth/Leaflet.ChineseTmsProviders/tree/master) 提供了多种地图支持
-- 使用 [Tailwind CSS](https://tailwindcss.com/) 样式库
+- 感谢 [cyc-987/Charge-in-ZJU: 浙大充电桩查询](https://github.com/cyc-987/Charge-in-ZJU) 的原作者 [@cyc-987](https://github.com/cyc-987)，为该项目提供了基础功能和灵感。
+- 使用 [leaflet-echarts](https://github.com/wandergis/leaflet-echarts) 提供了地图可视化功能。
+- 使用 [wandergis/coordtransform](https://github.com/wandergis/coordtransform) 提供了百度坐标（BD09）、国测局坐标（火星坐标，GCJ02）、和 WGS84 坐标系之间的转换函数，解决坐标偏移的问题。
+- 使用 [htoooth/Leaflet.ChineseTmsProviders](https://github.com/htoooth/Leaflet.ChineseTmsProviders/tree/master) 提供了多种地图支持。
+- 使用 [Tailwind CSS](https://tailwindcss.com/) 样式库。
