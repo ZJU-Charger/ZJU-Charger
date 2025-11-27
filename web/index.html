@@ -14,9 +14,9 @@
                 <h1 class="text-2xl font-bold text-blue-600">ZJU 充电桩状态</h1>
                 <div class="flex flex-wrap items-center gap-3 lg:gap-4">
                     <div class="flex gap-2 flex-wrap">
-                        <button id="campus-all" class="px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-blue-600 text-white border border-blue-600 hover:bg-blue-700" data-areaid="">全部</button>
-                        <button id="campus-yuquan" class="px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-gray-100 text-gray-700 border border-gray-300 hover:bg-blue-50 hover:border-blue-600 hover:text-blue-600" data-areaid="2143">玉泉校区</button>
-                        <button id="campus-zjg" class="px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-gray-100 text-gray-700 border border-gray-300 hover:bg-blue-50 hover:border-blue-600 hover:text-blue-600" data-areaid="1774">紫金港校区</button>
+                        <button id="campus-all" class="px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-blue-600 text-white border border-blue-600 hover:bg-blue-700" data-campus="">全部</button>
+                        <button id="campus-yuquan" class="px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-gray-100 text-gray-700 border border-gray-300 hover:bg-blue-50 hover:border-blue-600 hover:text-blue-600" data-campus="2143">玉泉校区</button>
+                        <button id="campus-zjg" class="px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-gray-100 text-gray-700 border border-gray-300 hover:bg-blue-50 hover:border-blue-600 hover:text-blue-600" data-campus="1774">紫金港校区</button>
                     </div>
                     <span id="update-time" class="text-xs lg:text-sm text-gray-600 whitespace-nowrap hidden sm:inline">加载中...</span>
                     <button id="refresh-btn" class="px-3 lg:px-4 py-2 bg-blue-600 text-white rounded-md text-xs lg:text-sm font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors duration-200 shadow-sm">刷新</button>
@@ -36,10 +36,20 @@
                 </div>
             </div>
             
-            <div class="bg-white rounded-lg shadow-md p-4 lg:p-6 overflow-y-auto h-[450px] lg:h-[650px]">
-                <h2 class="text-lg font-semibold text-gray-800 mb-4">站点列表</h2>
-                <div id="loading" class="text-center py-8 text-gray-500">加载中...</div>
-                <div id="station-list" class="flex flex-col gap-3"></div>
+            <div class="bg-white rounded-lg shadow-md overflow-hidden flex flex-col h-[450px] lg:h-[650px]">
+                <div class="p-4 lg:p-6 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                    <h2 class="text-lg font-semibold text-gray-800">站点列表</h2>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs lg:text-sm text-gray-600 whitespace-nowrap">服务商：</label>
+                        <select id="provider-selector" class="px-3 py-1.5 rounded-md text-xs lg:text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-600 transition-colors duration-200 shadow-sm min-w-[100px]">
+                            <option value="">全部</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-y-auto p-4 lg:p-6">
+                    <div id="loading" class="text-center py-8 text-gray-500">加载中...</div>
+                    <div id="station-list" class="flex flex-col gap-3"></div>
+                </div>
             </div>
         </div>
     </div>

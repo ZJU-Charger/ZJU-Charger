@@ -2,8 +2,14 @@
 let map = null;
 let markers = [];
 
-// 当前选中的校区 areaid（空字符串表示全部）
-let currentAreaId = "";
+// 当前选中的校区 campus（空字符串表示全部）
+let currentCampus = "";
+
+// 当前选中的服务商（空字符串表示全部）
+let currentProvider = "";
+
+// 可用服务商列表
+let availableProviders = [];
 
 // 关注列表（devid 和 devdescript 集合）
 let watchlistDevids = new Set();
@@ -305,6 +311,40 @@ async function toggleWatchlist(devids, devdescript) {
     }
 }
 
+// 加载可用服务商列表
+async function loadProviders() {
+    try {
+        const response = await fetch('/api/providers');
+        if (response.ok) {
+            const providers = await response.json();
+            availableProviders = providers;
+            
+            // 更新服务商选择器
+            const selector = document.getElementById('provider-selector');
+            if (selector) {
+                // 保留"全部服务商"选项
+                const allOption = selector.querySelector('option[value=""]');
+                selector.innerHTML = '';
+                if (allOption) {
+                    selector.appendChild(allOption);
+                }
+                
+                // 添加服务商选项
+                providers.forEach(provider => {
+                    const option = document.createElement('option');
+                    option.value = provider.id;
+                    option.textContent = provider.name;
+                    selector.appendChild(option);
+                });
+            }
+            return true;
+        }
+    } catch (error) {
+        console.error('获取服务商列表失败:', error);
+    }
+    return false;
+}
+
 // 获取站点状态
 async function fetchStatus() {
     const loadingEl = document.getElementById('loading');
@@ -314,10 +354,16 @@ async function fetchStatus() {
     listEl.innerHTML = '';
     
     try {
+        // 构建 API URL，支持 provider 参数
+        let apiUrl = '/api/status';
+        if (currentProvider) {
+            apiUrl += `?provider=${encodeURIComponent(currentProvider)}`;
+        }
+        
         // 先尝试调用 API
         let data;
         try {
-            const response = await fetch('/api/status');
+            const response = await fetch(apiUrl);
             if (response.ok) {
                 data = await response.json();
             } else {
@@ -329,6 +375,10 @@ async function fetchStatus() {
             const response = await fetch('/data/latest.json');
             if (response.ok) {
                 data = await response.json();
+                // 如果选择了服务商，需要过滤数据
+                if (currentProvider && data.stations) {
+                    data.stations = data.stations.filter(s => s.provider_id === currentProvider);
+                }
             } else {
                 throw new Error('无法加载数据');
             }
@@ -378,10 +428,18 @@ async function fetchStatus() {
 
 // 过滤站点（按校区）
 function filterStationsByCampus(stations) {
-    if (!currentAreaId) {
+    if (!currentCampus) {
         return stations;  // 显示全部
     }
-    return stations.filter(s => s.areaid && s.areaid.toString() === currentAreaId);
+    return stations.filter(s => s.campus && s.campus.toString() === currentCampus);
+}
+
+// 过滤站点（按服务商）
+function filterStationsByProvider(stations) {
+    if (!currentProvider) {
+        return stations;  // 显示全部
+    }
+    return stations.filter(s => s.provider_id === currentProvider);
 }
 
 // 渲染地图
@@ -390,41 +448,104 @@ function renderMap(stations) {
     markers.forEach(marker => map.removeLayer(marker));
     markers = [];
     
-    // 按校区过滤
-    const filteredStations = filterStationsByCampus(stations);
+    // 按校区和服务商过滤
+    let filteredStations = filterStationsByCampus(stations);
+    filteredStations = filterStationsByProvider(filteredStations);
+    
+    // 服务商形状映射（用于区分不同服务商）
+    const providerShapes = {
+        'neptune': 'circle',  // 圆形
+        // 可以添加更多服务商形状
+        // 'provider2': 'triangle',  // 三角形
+        // 'provider3': 'square',    // 正方形
+    };
+    
+    // 创建不同形状的图标函数
+    function createMarkerIcon(color, shape, number) {
+        const size = 24;
+        const borderWidth = 2;
+        const borderColor = '#ffffff';
+        const shadow = '0 2px 6px rgba(0,0,0,0.3)';
+        
+        let shapeStyle = '';
+        let clipPath = '';
+        
+        switch(shape) {
+            case 'triangle':
+                // 三角形（使用clip-path）
+                shapeStyle = `
+                    width: ${size}px;
+                    height: ${size}px;
+                    background-color: ${color};
+                    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding-top: 2px;
+                `;
+                break;
+            case 'square':
+                // 正方形
+                shapeStyle = `
+                    width: ${size}px;
+                    height: ${size}px;
+                    background-color: ${color};
+                    border-radius: 4px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                `;
+                break;
+            case 'circle':
+            default:
+                // 圆形（默认）
+                shapeStyle = `
+                    width: ${size}px;
+                    height: ${size}px;
+                    background-color: ${color};
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                `;
+                break;
+        }
+        
+        return `
+            <div style="
+                ${shapeStyle}
+                border: ${borderWidth}px solid ${borderColor};
+                color: white;
+                font-weight: bold;
+                font-size: 11px;
+                box-shadow: ${shadow};
+                position: relative;
+            ">
+                <span>${number}</span>
+            </div>
+        `;
+    }
     
     // 显示所有站点（包括非空闲的）
     filteredStations.forEach(station => {
-        const { name, lat, lon, free, total } = station;
+        const { name, lat, lon, free, total, provider_id, provider_name } = station;
         
         // 坐标转换
         const [markerLat, markerLon] = convertCoord(lat, lon);
         
-        // 根据空闲数量选择颜色
-        let color = '#52c41a'; // 绿色：有空闲
+        // 根据空闲数量选择颜色（统一的颜色方案）
+        let color = '#10b981'; // 绿色：有空闲（更柔和的绿色）
         if (free === 0) {
-            color = '#dc2626'; // 深红色：无空闲
+            color = '#ef4444'; // 红色：无空闲
         } else if (free <= 2) {
-            color = '#faad14'; // 橙色：少量空闲
+            color = '#f59e0b'; // 橙色：少量空闲
         }
         
-        // 创建带数字的自定义图标
-        const iconHtml = `
-            <div style="
-                width: 24px;
-                height: 24px;
-                border-radius: 50%;
-                background-color: ${color};
-                border: 2px solid white;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: white;
-                font-weight: bold;
-                font-size: 11px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            ">${free}</div>
-        `;
+        // 获取服务商对应的形状
+        const shape = providerShapes[provider_id] || 'circle';
+        
+        // 创建带数字的自定义图标（使用不同形状）
+        const iconHtml = createMarkerIcon(color, shape, free);
         
         const customIcon = L.divIcon({
             html: iconHtml,
@@ -438,12 +559,15 @@ function renderMap(stations) {
             icon: customIcon
         }).addTo(map);
         
-        // 添加弹出窗口
-        const freeColor = free === 0 ? '#ef4444' : '#52c41a';
+        // 添加弹出窗口（显示服务商信息）
+        const freeColor = free === 0 ? '#ef4444' : '#10b981';
         marker.bindPopup(`
-            <div style="text-align: center;">
-                <strong>${name}</strong><br>
-                可用: <span style="color: ${freeColor}; font-weight: bold;">${free}</span> / ${total}
+            <div style="text-align: center; min-width: 120px;">
+                <strong style="font-size: 14px;">${name}</strong><br>
+                <span style="font-size: 11px; color: #6b7280;">${provider_name || provider_id}</span><br>
+                <span style="font-size: 13px; margin-top: 4px; display: inline-block;">
+                    可用: <span style="color: ${freeColor}; font-weight: bold;">${free}</span> / ${total}
+                </span>
             </div>
         `);
         
@@ -454,9 +578,9 @@ function renderMap(stations) {
     if (markers.length > 0) {
         const group = new L.featureGroup(markers);
         map.fitBounds(group.getBounds().pad(0.1));
-    } else if (currentAreaId && CAMPUS_CONFIG[currentAreaId]) {
+    } else if (currentCampus && CAMPUS_CONFIG[currentCampus]) {
         // 如果没有标记但选择了校区，定位到校区中心
-        const campus = CAMPUS_CONFIG[currentAreaId];
+        const campus = CAMPUS_CONFIG[currentCampus];
         const center = convertCoord(campus.center[0], campus.center[1]);
         map.setView(center, DEFAULT_ZOOM);
     }
@@ -466,8 +590,9 @@ function renderMap(stations) {
 function renderList(stations) {
     const listEl = document.getElementById('station-list');
     
-    // 按校区过滤
-    const filteredStations = filterStationsByCampus(stations);
+    // 按校区和服务商过滤
+    let filteredStations = filterStationsByCampus(stations);
+    filteredStations = filterStationsByProvider(filteredStations);
     
     // 按空闲数量排序
     const sortedStations = [...filteredStations].sort((a, b) => b.free - a.free);
@@ -478,57 +603,78 @@ function renderList(stations) {
     }
     
     listEl.innerHTML = sortedStations.map(station => {
-        const { name, free, total, used, error, devids } = station;
+        const { name, free, total, used, error, devids, provider_id, provider_name, campus } = station;
         
-        // 确定状态样式
-        let statusClass = 'none';
-        let statusText = '无空闲';
-        if (free > 0) {
-            if (free <= 2) {
-                statusClass = 'low';
-                statusText = `仅${free}个`;
-            } else {
-                statusClass = 'free';
-                statusText = `${free}个可用`;
-            }
-        }
+        // 计算使用率
+        const usagePercent = total > 0 ? (used / total) * 100 : 0;
+        const freePercent = total > 0 ? (free / total) * 100 : 0;
+        const errorPercent = total > 0 ? (error / total) * 100 : 0;
         
-        // 确定状态样式类名（使用Tailwind颜色）
-        let statusBgClass = 'bg-red-500'; // none - 无空闲
-        if (statusClass === 'free') {
-            statusBgClass = 'bg-green-600'; // 有空闲
-        } else if (statusClass === 'low') {
-            statusBgClass = 'bg-orange-500'; // 少量空闲
-        }
+        // 可用部分统一使用绿色
+        const barColor = '#10b981'; // 绿色：可用部分统一颜色
         
-        // 非空闲点位使用深红色背景
-        const itemBgClass = free === 0 ? 'bg-red-200' : 'bg-gray-50';
-        const itemBorderClass = free === 0 ? 'border-red-500' : 'border-gray-200';
-        const itemHoverBorderClass = free === 0 ? 'hover:border-red-600' : 'hover:border-blue-600';
-        const itemHoverBgClass = free === 0 ? 'hover:bg-red-300' : 'hover:bg-blue-50';
+        // 检查是否没有可用充电桩
+        const isUnavailable = free === 0;
         
-        // 检查是否已关注（检查 devid 或 devdescript）
+        // 优化背景和边框配色
+        const itemBgClass = 'bg-white';
+        const itemBorderClass = 'border-gray-200';
+        const itemHoverBorderClass = isUnavailable ? '' : 'hover:border-blue-400';
+        const itemHoverBgClass = isUnavailable ? '' : 'hover:bg-blue-50';
+        const cursorClass = isUnavailable ? 'cursor-not-allowed' : 'cursor-pointer';
+        const grayscaleClass = isUnavailable ? 'grayscale opacity-60' : '';
+        const hoverEffect = isUnavailable ? '' : 'hover:translate-x-1 hover:shadow-md';
+        
+        // 检查是否已关注
         const stationDevids = devids || [];
         const watched = isWatched(stationDevids, name);
-        // 使用Tailwind内置的animate-pulse动画实现心跳效果
         const heartAnimationClass = watched ? 'animate-pulse' : '';
         const heartSymbol = watched ? '❤️' : '🤍';
         
         // 将 devids 转换为 JSON 字符串以便在 data 属性中使用
         const devidsJson = JSON.stringify(stationDevids);
         
+        // 获取校区名称
+        const campusName = campus && CAMPUS_CONFIG[campus] ? CAMPUS_CONFIG[campus].name : '未知校区';
+        
+        // 服务商形状图标
+        const providerShapesForBadge = {
+            'neptune': '●',  // 圆形
+            // 'provider2': '▲',  // 三角形
+            // 'provider3': '■',  // 正方形
+        };
+        const shapeIcon = providerShapesForBadge[provider_id] || '●';
+        
+        // 站点名称截断（最多显示20个字符）
+        const displayName = name.length > 20 ? name.substring(0, 20) + '...' : name;
+        
         return `
-            <div class="p-4 border ${itemBorderClass} rounded-lg ${itemBgClass} transition-all duration-200 cursor-pointer ${itemHoverBorderClass} ${itemHoverBgClass} hover:translate-x-1 hover:shadow-md" data-name="${name}">
-                <div class="flex justify-between items-center mb-2 gap-2">
-                    <span class="font-semibold text-base text-gray-900 flex-1">${name}</span>
-                    <span class="px-2 py-1 rounded text-xs font-semibold text-white whitespace-nowrap ${statusBgClass}">${statusText}</span>
+            <div class="p-4 border ${itemBorderClass} rounded-lg ${itemBgClass} transition-all duration-200 ${cursorClass} ${itemHoverBorderClass} ${itemHoverBgClass} ${hoverEffect} ${grayscaleClass}" data-name="${name}" data-available="${!isUnavailable}" title="${isUnavailable ? '暂无可用充电桩' : name}">
+                <!-- 站点名称和关注按钮 -->
+                <div class="flex justify-between items-start mb-3 gap-2">
+                    <span class="font-semibold text-base text-gray-900 truncate flex-1" title="${name}">${displayName}</span>
                     <span class="text-lg cursor-pointer select-none transition-transform duration-200 hover:scale-125 flex-shrink-0 p-0.5 leading-none ${heartAnimationClass}" data-devids='${devidsJson}' data-devdescript="${name}" title="${watched ? '取消关注' : '添加关注'}">${heartSymbol}</span>
                 </div>
-                <div class="flex gap-4 text-sm text-gray-600 flex-wrap">
-                    <span>可用: <strong class="text-gray-900">${free}</strong></span>
-                    <span>已用: <strong class="text-gray-900">${used}</strong></span>
-                    <span>总数: <strong class="text-gray-900">${total}</strong></span>
-                    ${error > 0 ? `<span class="text-red-600">故障: <strong>${error}</strong></span>` : ''}
+                
+                <!-- 颜色条：显示使用情况（可用部分在最左侧） -->
+                <div class="mb-3">
+                    <div class="h-3 bg-gray-200 rounded-full overflow-hidden flex">
+                        ${free > 0 ? `<div style="background-color: ${barColor}; width: ${freePercent}%"></div>` : ''}
+                        ${used > 0 ? `<div class="bg-gray-400" style="width: ${usagePercent}%"></div>` : ''}
+                        ${error > 0 ? `<div class="bg-red-500" style="width: ${errorPercent}%"></div>` : ''}
+                    </div>
+                    <div class="flex justify-between items-center mt-1 text-xs text-gray-500">
+                        <span>可用: ${free}</span>
+                        <span>已用: ${used}</span>
+                        <span>共计: ${total}</span>
+                        ${error > 0 ? `<span class="text-red-600">故障: ${error}</span>` : ''}
+                    </div>
+                </div>
+                
+                <!-- 标签：校区和供应商 -->
+                <div class="flex flex-wrap gap-2">
+                    <span class="px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">${campusName}</span>
+                    ${provider_name ? `<span class="px-2 py-1 rounded-md text-xs font-medium bg-slate-50 text-slate-700 border border-slate-200 inline-flex items-center gap-1"><span class="text-[10px]">${shapeIcon}</span>${provider_name}</span>` : ''}
                 </div>
             </div>
         `;
@@ -560,10 +706,16 @@ function renderList(stations) {
             });
         }
         
-        // 列表项点击事件，定位到地图
+        // 列表项点击事件，定位到地图（仅当有可用充电桩时）
         item.addEventListener('click', (e) => {
             // 如果点击的是小红心，不触发地图定位
             if (e.target.hasAttribute('data-devids')) {
+                return;
+            }
+            
+            // 如果没有可用充电桩，不执行定位
+            const isAvailable = item.getAttribute('data-available') === 'true';
+            if (!isAvailable) {
                 return;
             }
             
@@ -606,7 +758,7 @@ function updateTime(timestamp) {
 
 // 校区切换事件
 function setupCampusSelector() {
-    const campusButtons = document.querySelectorAll('[data-areaid]');
+    const campusButtons = document.querySelectorAll('[data-campus]');
     campusButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             // 更新所有按钮样式
@@ -620,7 +772,7 @@ function setupCampusSelector() {
                 }
             });
             // 更新当前校区
-            currentAreaId = btn.dataset.areaid || "";
+            currentCampus = btn.dataset.campus || "";
             // 重新渲染（使用已加载的数据）
             if (window.currentStations) {
                 renderMap(window.currentStations);
@@ -628,6 +780,26 @@ function setupCampusSelector() {
             }
         });
     });
+}
+
+// 服务商切换事件
+function setupProviderSelector() {
+    const providerSelector = document.getElementById('provider-selector');
+    if (providerSelector) {
+        providerSelector.addEventListener('change', (e) => {
+            currentProvider = e.target.value || "";
+            // 如果选择了服务商，需要重新获取数据
+            if (currentProvider) {
+                fetchStatus();
+            } else {
+                // 如果选择"全部"，使用已加载的数据重新渲染
+                if (window.currentStations) {
+                    renderMap(window.currentStations);
+                    renderList(window.currentStations);
+                }
+            }
+        });
+    }
 }
 
 // 地图切换事件
@@ -646,19 +818,42 @@ document.getElementById('refresh-btn').addEventListener('click', () => {
     fetchStatus();
 });
 
+// 获取前端配置
+let fetchInterval = 60; // 默认60秒
+
+async function loadConfig() {
+    try {
+        const response = await fetch('/api/config');
+        if (response.ok) {
+            const config = await response.json();
+            fetchInterval = config.fetch_interval || 60;
+            console.log(`已加载配置：自动刷新间隔 = ${fetchInterval}秒`);
+            return true;
+        }
+    } catch (error) {
+        console.warn('获取配置失败，使用默认值:', error);
+    }
+    return false;
+}
+
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', async () => {
     initMap();
     setupCampusSelector();
+    setupProviderSelector();
     // 初始化地图选择器状态
     updateMapSelector();
+    // 加载配置
+    await loadConfig();
+    // 先加载服务商列表
+    await loadProviders();
     // 先加载关注列表，再获取站点状态
     await fetchWatchlist();
     fetchStatus();
     
-    // 每60秒自动刷新
+    // 使用配置的间隔自动刷新
     setInterval(async () => {
         await fetchWatchlist();
         fetchStatus();
-    }, 60000);
+    }, fetchInterval * 1000); // 转换为毫秒
 });
