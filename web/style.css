@@ -45,6 +45,11 @@ header h1 {
     gap: 8px;
 }
 
+.map-selector {
+    display: flex;
+    gap: 8px;
+}
+
 .campus-btn {
     background: #f0f0f0;
     color: #333;
@@ -63,6 +68,29 @@ header h1 {
 }
 
 .campus-btn.active {
+    background: #1890ff;
+    color: white;
+    border-color: #1890ff;
+}
+
+.map-switch-btn {
+    background: #f0f0f0;
+    color: #333;
+    border: 1px solid #d9d9d9;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.map-switch-btn:hover {
+    background: #e6f7ff;
+    border-color: #1890ff;
+    color: #1890ff;
+}
+
+.map-switch-btn.active {
     background: #1890ff;
     color: white;
     border-color: #1890ff;

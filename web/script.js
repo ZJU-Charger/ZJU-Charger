@@ -15,81 +15,189 @@ const CAMPUS_CONFIG = {
     1774: { name: "紫金港校区", center: [30.299196, 120.089946] }
 };
 
-// 默认中心点：玉泉校区（BD-09 坐标，会自动转换为 WGS-84）
+// 默认中心点：玉泉校区（BD-09 坐标，会自动转换为 GCJ-02）
 const DEFAULT_CENTER = [30.27, 120.12];
 const DEFAULT_ZOOM = 15;
 
 // 地图配置
 const MAP_CONFIG = {
-    useGcj02: false,      // 是否使用 GCJ-02 坐标系（false = 使用 WGS-84，OpenStreetMap）
-    useGaodeMap: false,   // 是否使用高德地图（需要 API key）
-    dataCoordSystem: 'BD09' // 数据源坐标系：'WGS84'、'GCJ02' 或 'BD09'
-    // 数据源坐标是 BD-09 格式（百度坐标系），会自动转换为 WGS-84（OpenStreetMap 使用）
+    dataCoordSystem: 'BD09',  // 数据源坐标系：'WGS84'、'GCJ02' 或 'BD09'
+    webCoordSystem: 'GCJ02',  // 当前地图使用的坐标系：'WGS84'、'GCJ02' 或 'BD09'
+    useMap: 'gaode'           // 当前使用的地图后端：'osm'、'gaode' 或 'baidu'
+};
+
+// 地图后端配置
+const MAP_PROVIDERS = {
+    osm: {
+        name: 'OpenStreetMap',
+        coordSystem: 'WGS84',
+        tileLayer: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        options: {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }
+    },
+    gaode: {
+        name: '高德地图',
+        coordSystem: 'GCJ02',
+        tileLayer: 'http://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+        options: {
+            subdomains: ['1', '2', '3', '4'],
+            minZoom: 1,
+            maxZoom: 19,
+            attribution: '© 高德地图'
+        }
+    },
+    baidu: {
+        name: '百度地图',
+        coordSystem: 'BD09',
+        tileLayer: 'http://api{s}.map.bdimg.com/customimage/tile?&x={x}&y={y}&z={z}&udt=20160928&scale=1',
+        options: {
+            subdomains: ['0', '1', '2'],
+            minZoom: 3,
+            maxZoom: 19,
+            attribution: '© 百度地图'
+        }
+    }
 };
 
 // 坐标转换辅助函数
+// 将数据源坐标系转换为地图使用的坐标系
 function convertCoord(lat, lon) {
-    const coordSystem = MAP_CONFIG.dataCoordSystem;
-    const useGcj02 = MAP_CONFIG.useGcj02;
+    const fromCoord = MAP_CONFIG.dataCoordSystem;
+    const toCoord = MAP_CONFIG.webCoordSystem;
     
-    // BD-09 转 GCJ-02（地图使用 GCJ-02）
-    if (useGcj02 && coordSystem === 'BD09' && typeof bd09ToGcj02 === 'function') {
-        const gcj02 = bd09ToGcj02(lon, lat);
-        return [gcj02[1], gcj02[0]]; // 返回 [lat, lng]
+    // 如果坐标系相同，无需转换
+    if (fromCoord === toCoord) {
+        return [lat, lon];
     }
     
-    // BD-09 转 WGS-84（地图使用 WGS-84）
-    if (!useGcj02 && coordSystem === 'BD09' && typeof bd09ToWgs84 === 'function') {
-        const wgs84 = bd09ToWgs84(lon, lat);
-        return [wgs84[1], wgs84[0]]; // 返回 [lat, lng]
+    // 定义转换函数映射表
+    const convertFunctions = {
+        'BD09->GCJ02': (lng, lat) => {
+            if (typeof bd09ToGcj02 === 'function') {
+                return bd09ToGcj02(lng, lat);
+            }
+            return [lng, lat];
+        },
+        'BD09->WGS84': (lng, lat) => {
+            if (typeof bd09ToWgs84 === 'function') {
+                return bd09ToWgs84(lng, lat);
+            }
+            return [lng, lat];
+        },
+        'GCJ02->BD09': (lng, lat) => {
+            if (typeof gcj02ToBd09 === 'function') {
+                return gcj02ToBd09(lng, lat);
+            }
+            return [lng, lat];
+        },
+        'GCJ02->WGS84': (lng, lat) => {
+            if (typeof gcj02ToWgs84 === 'function') {
+                return gcj02ToWgs84(lng, lat);
+            }
+            return [lng, lat];
+        },
+        'WGS84->BD09': (lng, lat) => {
+            if (typeof wgs84ToBd09 === 'function') {
+                return wgs84ToBd09(lng, lat);
+            }
+            return [lng, lat];
+        },
+        'WGS84->GCJ02': (lng, lat) => {
+            if (typeof wgs84ToGcj02 === 'function') {
+                return wgs84ToGcj02(lng, lat);
+            }
+            return [lng, lat];
+        }
+    };
+    
+    // 构建转换键
+    const convertKey = `${fromCoord}->${toCoord}`;
+    const convertFunc = convertFunctions[convertKey];
+    
+    if (convertFunc) {
+        const result = convertFunc(lon, lat);
+        return [result[1], result[0]]; // 返回 [lat, lng]
     }
     
-    // GCJ-02 转 WGS-84（地图使用 WGS-84）
-    if (!useGcj02 && coordSystem === 'GCJ02' && typeof gcj02ToWgs84 === 'function') {
-        const wgs84 = gcj02ToWgs84(lon, lat);
-        return [wgs84[1], wgs84[0]]; // 返回 [lat, lng]
-    }
-    
-    // WGS-84 转 GCJ-02（地图使用 GCJ-02）
-    if (useGcj02 && coordSystem === 'WGS84' && typeof wgs84ToGcj02 === 'function') {
-        const gcj02 = wgs84ToGcj02(lon, lat);
-        return [gcj02[1], gcj02[0]]; // 返回 [lat, lng]
-    }
-    
-    // 无需转换
+    // 如果找不到转换函数，返回原坐标
+    console.warn(`未找到坐标转换函数: ${convertKey}`);
     return [lat, lon];
 }
 
+// 当前地图图层
+let currentTileLayer = null;
+
 // 初始化地图
 function initMap() {
+    // 如果地图已存在，先移除
+    if (map) {
+        map.remove();
+    }
+    
     // 转换中心点坐标
     const center = convertCoord(DEFAULT_CENTER[0], DEFAULT_CENTER[1]);
     
     // 创建地图实例
-    if (MAP_CONFIG.useGcj02 && MAP_CONFIG.useGaodeMap && L.CRS.GCJ02) {
-        // 使用 GCJ-02 坐标系 + 高德地图
-        map = L.map('map', {
-            crs: L.CRS.GCJ02,
-            center: center,
-            zoom: DEFAULT_ZOOM
-        });
-        
-        // 添加高德地图图层（需要 API key）
-        L.tileLayer.gaode('https://webrd04.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}', {
-            subdomains: ['1', '2', '3', '4'],
-            attribution: '© 高德地图',
-            maxZoom: 18
-        }).addTo(map);
-    } else {
-        // 使用标准 WGS-84 坐标系（OpenStreetMap）- 默认选项
-        map = L.map('map').setView(center, DEFAULT_ZOOM);
-        
-        // 添加 OpenStreetMap 图层
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
-            maxZoom: 19
-        }).addTo(map);
+    map = L.map('map').setView(center, DEFAULT_ZOOM);
+    
+    // 添加当前配置的地图图层
+    switchMap(MAP_CONFIG.useMap);
+}
+
+// 切换地图后端
+function switchMap(mapProvider) {
+    if (!map) {
+        console.error('地图未初始化');
+        return;
     }
+    
+    // 验证地图提供商
+    if (!MAP_PROVIDERS[mapProvider]) {
+        console.error(`未知的地图提供商: ${mapProvider}`);
+        return;
+    }
+    
+    // 移除旧图层
+    if (currentTileLayer) {
+        map.removeLayer(currentTileLayer);
+    }
+    
+    // 更新配置
+    MAP_CONFIG.useMap = mapProvider;
+    const provider = MAP_PROVIDERS[mapProvider];
+    MAP_CONFIG.webCoordSystem = provider.coordSystem;
+    
+    // 创建新图层
+    currentTileLayer = L.tileLayer(provider.tileLayer, provider.options);
+    currentTileLayer.addTo(map);
+    
+    // 更新按钮状态
+    updateMapSwitchButtons();
+    
+    // 重新转换并设置中心点
+    const center = convertCoord(DEFAULT_CENTER[0], DEFAULT_CENTER[1]);
+    map.setView(center, map.getZoom());
+    
+    // 重新渲染所有标记（因为坐标系改变了）
+    if (window.currentStations && window.currentStations.length > 0) {
+        renderMap(window.currentStations);
+    }
+    
+    console.log(`已切换到: ${provider.name} (${provider.coordSystem})`);
+}
+
+// 更新地图切换按钮状态
+function updateMapSwitchButtons() {
+    const buttons = document.querySelectorAll('.map-switch-btn');
+    buttons.forEach(btn => {
+        if (btn.dataset.map === MAP_CONFIG.useMap) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
 }
 
 // 获取关注列表
@@ -486,6 +594,16 @@ function setupCampusSelector() {
     });
 }
 
+// 地图切换事件
+document.querySelectorAll('.map-switch-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const mapProvider = btn.dataset.map;
+        if (mapProvider && MAP_PROVIDERS[mapProvider]) {
+            switchMap(mapProvider);
+        }
+    });
+});
+
 // 刷新按钮事件
 document.getElementById('refresh-btn').addEventListener('click', () => {
     fetchStatus();
@@ -495,6 +613,8 @@ document.getElementById('refresh-btn').addEventListener('click', () => {
 document.addEventListener('DOMContentLoaded', async () => {
     initMap();
     setupCampusSelector();
+    // 初始化地图切换按钮状态
+    updateMapSwitchButtons();
     // 先加载关注列表，再获取站点状态
     await fetchWatchlist();
     fetchStatus();
