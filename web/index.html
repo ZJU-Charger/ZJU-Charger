@@ -35,8 +35,9 @@
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-200">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <header class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6 h-screen max-h-screen overflow-hidden">
+        <!-- 上：Header -->
+        <header class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200 flex-shrink-0">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div class="flex items-end gap-3">
                     <h1 class="text-2xl font-bold text-blue-600 dark:text-blue-400">ZJU Charger</h1>
@@ -62,21 +63,22 @@
             </div>
         </header>
         
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden flex flex-col transition-colors duration-200">
-                <div id="map" class="w-full h-[400px] lg:h-[600px] flex-shrink-0"></div>
-                <div class="p-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0 transition-colors duration-200">
-                    <button id="download-map-btn" class="flex items-center gap-2 px-3 py-2 rounded-md text-xs lg:text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:border-blue-600 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-600 dark:focus:border-blue-500 transition-colors duration-200" title="下载地图">
+        <!-- 中：地图和站点列表 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-hidden">
+            <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden flex flex-col transition-colors duration-200 flex-1">
+                <div id="map" class="w-full flex-1 min-h-0"></div>
+                <div class="p-3 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 sm:gap-4 flex-shrink-0 h-12 lg:h-14 transition-colors duration-200">
+                    <button id="download-map-btn" class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:border-blue-600 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-600 dark:focus:border-blue-500 transition-colors duration-200 flex-1 sm:flex-none sm:w-auto" title="下载地图">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                             <polyline points="7 10 12 15 17 10"></polyline>
                             <line x1="12" y1="15" x2="12" y2="3"></line>
                         </svg>
-                        <span class="hidden sm:inline">下载地图</span>
+                        <span>下载地图</span>
                     </button>
-                    <div class="flex items-center">
-                        <label class="text-xs lg:text-sm text-gray-600 dark:text-gray-400 mr-2">地图服务：</label>
-                        <select id="map-selector" class="px-3 py-2 rounded-md text-xs lg:text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:border-blue-600 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-600 dark:focus:border-blue-500 transition-colors duration-200">
+                    <div class="flex items-center gap-2 flex-1 sm:flex-none justify-center sm:justify-end">
+                        <label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap hidden sm:inline">地图服务：</label>
+                        <select id="map-selector" class="px-3 py-2 rounded-md text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:border-blue-600 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-600 dark:focus:border-blue-500 transition-colors duration-200 min-w-[120px] sm:min-w-[140px]">
                             <option value="gaode" selected>高德地图</option>
                             <option value="osm">OpenStreetMap</option>
                         </select>
@@ -84,7 +86,7 @@
                 </div>
             </div>
             
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden flex flex-col h-[450px] lg:h-[650px] transition-colors duration-200">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden flex flex-col transition-colors duration-200 flex-1">
                 <div class="p-4 lg:p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0 transition-colors duration-200">
                     <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">站点列表</h2>
                     <div class="flex items-center gap-2">
@@ -94,17 +96,15 @@
                         </select>
                     </div>
                 </div>
-                <div class="flex-1 overflow-y-auto p-4 lg:p-6">
+                <div class="flex-1 overflow-y-auto p-4 lg:p-6 min-h-0">
                     <div id="loading" class="text-center py-8 text-gray-500 dark:text-gray-400">加载中...</div>
                     <div id="station-list" class="flex flex-col gap-3"></div>
                 </div>
             </div>
         </div>
-    </div>
-    
-    <!-- Social Links -->
-    <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 mt-8">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 text-center transition-colors duration-200">
+        
+        <!-- 下：Footer -->
+        <footer class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 text-center transition-colors duration-200 flex-shrink-0">
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
                 <a href="https://github.com/Phil-Fan/ZJU-Charger" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">
                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -120,8 +120,8 @@
                 </a>
                 <span class="text-xs text-gray-500 dark:text-gray-400">本项目使用 <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-500 underline">GPLv3</a> 协议开源</span>
             </div>
-        </div>
-    </footer>
+        </footer>
+    </div>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-easyprint@2.1.9/dist/bundle.js"></script>
