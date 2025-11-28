@@ -905,11 +905,11 @@ function renderList(stations, allStationsDef = []) {
         // 优化背景和边框配色
         const itemBgClass = isNotFetched ? 'bg-gray-100' : 'bg-white';
         const itemBorderClass = isNotFetched ? 'border-gray-300' : 'border-gray-200';
-        const itemHoverBorderClass = (isUnavailable || isNotFetched) ? '' : 'hover:border-blue-400';
-        const itemHoverBgClass = (isUnavailable || isNotFetched) ? '' : 'hover:bg-blue-50';
-        const cursorClass = (isUnavailable || isNotFetched) ? 'cursor-not-allowed' : 'cursor-pointer';
-        const grayscaleClass = (isUnavailable || isNotFetched) ? 'grayscale opacity-60' : '';
-        const hoverEffect = (isUnavailable || isNotFetched) ? '' : 'hover:translate-x-1 hover:shadow-md';
+        const itemHoverBorderClass = isNotFetched ? '' : 'hover:border-blue-400';
+        const itemHoverBgClass = isNotFetched ? '' : 'hover:bg-blue-50';
+        const cursorClass = isNotFetched ? 'cursor-not-allowed' : 'cursor-pointer';
+        const grayscaleClass = isNotFetched ? 'grayscale opacity-60' : '';
+        const hoverEffect = isNotFetched ? '' : 'hover:translate-x-1 hover:shadow-md';
         
         // 检查是否已关注
         const stationDevids = devids || [];
@@ -934,10 +934,10 @@ function renderList(stations, allStationsDef = []) {
         // 站点名称截断（最多显示20个字符）
         const displayName = name.length > 20 ? name.substring(0, 20) + '...' : name;
         
-        const titleText = isNotFetched ? '未抓取到数据' : (isUnavailable ? '暂无可用充电桩' : name);
+        const titleText = isNotFetched ? '未抓取到数据' : name;
         
         return `
-            <div class="p-4 border ${itemBorderClass} rounded-lg ${itemBgClass} transition-all duration-200 ${cursorClass} ${itemHoverBorderClass} ${itemHoverBgClass} ${hoverEffect} ${grayscaleClass}" data-name="${name}" data-available="${!isUnavailable && !isNotFetched}" data-provider-id="${provider_id || ''}" title="${titleText}">
+            <div class="p-4 border ${itemBorderClass} rounded-lg ${itemBgClass} transition-all duration-200 ${cursorClass} ${itemHoverBorderClass} ${itemHoverBgClass} ${hoverEffect} ${grayscaleClass}" data-name="${name}" data-available="${!isNotFetched}" data-provider-id="${provider_id || ''}" title="${titleText}">
                 <!-- 站点名称和关注按钮 -->
                 <div class="flex justify-between items-start mb-3 gap-2">
                     <span class="font-semibold text-base ${isNotFetched ? 'text-gray-500' : 'text-gray-900'} truncate flex-1" title="${name}">${displayName}</span>
@@ -1028,14 +1028,14 @@ function renderList(stations, allStationsDef = []) {
             });
         }
         
-        // 列表项点击事件，定位到地图（仅当有可用充电桩时）
+        // 列表项点击事件，定位到地图（仅当已抓取到数据时）
         item.addEventListener('click', (e) => {
             // 如果点击的是小红心，不触发地图定位
             if (e.target.hasAttribute('data-devids')) {
                 return;
             }
             
-            // 如果没有可用充电桩，不执行定位
+            // 如果未抓取到数据，不执行定位
             const isAvailable = item.getAttribute('data-available') === 'true';
             if (!isAvailable) {
                 return;
