@@ -9,24 +9,21 @@ venv/
 ENV/
 .venv
 
-# 环境变量
-.env
-.env.local
-
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 
+data/*
+!data/stations.json
+
 # 临时文件
 *.log
 logs/
-tmp.json
-full_fetch_result.json
+
 
 # OS
 .DS_Store
 Thumbs.db
-
 .env*

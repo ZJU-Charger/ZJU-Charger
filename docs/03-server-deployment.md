@@ -13,7 +13,7 @@
 ### 1. 安装依赖
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ### 2. 配置环境变量
@@ -27,7 +27,7 @@ DINGTALK_SECRET=your_secret_here
 
 # API 服务器配置
 API_HOST=0.0.0.0
-API_PORT=8000
+API_PORT=2333
 
 # 数据抓取配置
 FETCH_INTERVAL=60
@@ -214,26 +214,18 @@ PROVIDER_NEPTUNE_API_URL=https://api.example.com
     python run_server.py --port 8001
     ```
 
-2. **权限问题**
+2. **端口开放问题**
 
-    ```bash
-    # 确保有写入权限
-    chmod -R 755 /path/to/Charge-in-ZJU/data
-    ```
+```shell
+sudo iptables -L -n | grep 80
+sudo iptables -L -n | grep 443
+```
 
-3. **依赖问题**
-
-    ```bash
-    # 重新安装依赖
-    pip install -r requirements.txt --upgrade
-    ```
-
-4. **日志查看**
-
-    ```bash
-    # 查看实时日志
-    tail -f /var/log/zju-charger/server.log
-    ```
+```shell
+sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT
+sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+sudo iptables-save
+```
 
 ## 安全建议
 
