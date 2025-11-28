@@ -18,6 +18,7 @@ let watchlistDevdescripts = new Set();
 
 // localStorage 键名
 const WATCHLIST_STORAGE_KEY = 'zju_charger_watchlist';
+const THEME_STORAGE_KEY = 'zju_charger_theme';
 
 // 校区配置
 // 注意：坐标格式为 [经度, 纬度] (lng, lat)
@@ -396,7 +397,7 @@ async function toggleWatchlist(devids, devdescript, providerId) {
         // 保存到 localStorage
         saveWatchlistToStorage();
         
-        // 重新渲染列表以更新小红心状态
+        // 重新渲染列表以更新收藏状态
         if (window.currentStations) {
             renderList(window.currentStations, window.allStationsDef);
         }
@@ -597,10 +598,10 @@ async function fetchStatus() {
                 // 数据为空，显示提示
                 const listEl = document.getElementById('station-list');
                 listEl.innerHTML = `
-                    <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg text-center">
+                    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 p-4 rounded-lg text-center">
                         <p class="font-medium">暂无站点数据</p>
                         <p class="text-sm mt-2">请确保服务器已成功抓取数据</p>
-                        <p class="text-sm mt-1 text-red-600">如果服务器正在运行，请检查控制台错误信息</p>
+                        <p class="text-sm mt-1 text-red-600 dark:text-red-400">如果服务器正在运行，请检查控制台错误信息</p>
                     </div>
                 `;
                 updateTime(data.updated_at || '未知');
@@ -647,10 +648,10 @@ async function fetchStatus() {
     } catch (error) {
         console.error('获取数据失败:', error);
         listEl.innerHTML = `
-            <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg text-center">
+            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 p-4 rounded-lg text-center">
                 <p class="font-medium">加载数据失败</p>
                 <p class="text-sm mt-2">${error.message}</p>
-                <p class="text-sm mt-2 text-red-600">
+                <p class="text-sm mt-2 text-red-600 dark:text-red-400">
                     请检查：<br>
                     1. 服务器是否正在运行<br>
                     2. 网络连接是否正常<br>
@@ -897,16 +898,29 @@ function renderList(stations, allStationsDef = []) {
     let filteredStations = filterStationsByCampus(allStations);
     filteredStations = filterStationsByProvider(filteredStations);
     
-    // 按空闲数量排序（未抓取的排在最后）
+    // 排序逻辑：关注列表优先，然后按可用数量排序
     const sortedStations = [...filteredStations].sort((a, b) => {
-        if (a.isFetched !== b.isFetched) {
-            return a.isFetched ? -1 : 1; // 已抓取的排在前面
+        // 检查是否已关注
+        const aWatched = isWatched(a.devids || [], a.name, a.provider_id);
+        const bWatched = isWatched(b.devids || [], b.name, b.provider_id);
+        
+        // 如果一个是关注的，另一个不是，关注的排在前面
+        if (aWatched !== bWatched) {
+            return aWatched ? -1 : 1;
         }
+        
+        // 如果都是关注的或都不是关注的，继续其他排序规则
+        // 已抓取的排在前面
+        if (a.isFetched !== b.isFetched) {
+            return a.isFetched ? -1 : 1;
+        }
+        
+        // 按可用数量排序（从多到少）
         return b.free - a.free;
     });
     
     if (sortedStations.length === 0) {
-        listEl.innerHTML = '<div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg text-center">暂无站点数据</div>';
+        listEl.innerHTML = '<div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 p-4 rounded-lg text-center">暂无站点数据</div>';
         return;
     }
     
@@ -927,20 +941,26 @@ function renderList(stations, allStationsDef = []) {
         // 检查是否未抓取到
         const isNotFetched = isFetched === false;
         
-        // 优化背景和边框配色
-        const itemBgClass = isNotFetched ? 'bg-gray-100' : 'bg-white';
-        const itemBorderClass = isNotFetched ? 'border-gray-300' : 'border-gray-200';
-        const itemHoverBorderClass = isNotFetched ? '' : 'hover:border-blue-400';
-        const itemHoverBgClass = isNotFetched ? '' : 'hover:bg-blue-50';
+        // 优化背景和边框配色（支持暗色模式）
+        const itemBgClass = isNotFetched ? 'bg-gray-100 dark:bg-gray-700/50' : 'bg-white dark:bg-gray-800';
+        const itemBorderClass = isNotFetched ? 'border-gray-300 dark:border-gray-600' : 'border-gray-200 dark:border-gray-700';
+        const itemHoverBorderClass = isNotFetched ? '' : 'hover:border-blue-400 dark:hover:border-blue-500';
+        const itemHoverBgClass = isNotFetched ? '' : 'hover:bg-blue-50 dark:hover:bg-blue-900/30';
         const cursorClass = isNotFetched ? 'cursor-not-allowed' : 'cursor-pointer';
         const grayscaleClass = isNotFetched ? 'grayscale opacity-60' : '';
-        const hoverEffect = isNotFetched ? '' : 'hover:translate-x-1 hover:shadow-md';
         
         // 检查是否已关注
         const stationDevids = devids || [];
         const watched = isWatched(stationDevids, name, provider_id);
-        const heartAnimationClass = watched ? 'animate-pulse' : '';
-        const heartSymbol = watched ? '❤️' : '🤍';
+        
+        // Heroicons 风格的星形图标（实心/空心）- 表示收藏/关注
+        const starIcon = watched 
+            ? `<svg class="w-5 h-5 text-yellow-500 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+            </svg>`
+            : `<svg class="w-5 h-5 text-gray-400 dark:text-gray-500 hover:text-yellow-500 dark:hover:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
+            </svg>`;
         
         // 将 devids 转换为 JSON 字符串以便在 data 属性中使用
         const devidsJson = JSON.stringify(stationDevids);
@@ -962,39 +982,39 @@ function renderList(stations, allStationsDef = []) {
         const titleText = isNotFetched ? '未抓取到数据' : name;
         
         return `
-            <div class="p-4 border ${itemBorderClass} rounded-lg ${itemBgClass} transition-all duration-200 ${cursorClass} ${itemHoverBorderClass} ${itemHoverBgClass} ${hoverEffect} ${grayscaleClass}" data-name="${name}" data-available="${!isNotFetched}" data-provider-id="${provider_id || ''}" title="${titleText}">
+            <div class="p-4 border ${itemBorderClass} rounded-lg ${itemBgClass} transition-all duration-200 ${cursorClass} ${itemHoverBorderClass} ${itemHoverBgClass} ${grayscaleClass}" data-name="${name}" data-available="${!isNotFetched}" data-provider-id="${provider_id || ''}" title="${titleText}">
                 <!-- 站点名称和关注按钮 -->
                 <div class="flex justify-between items-start mb-3 gap-2">
-                    <span class="font-semibold text-base ${isNotFetched ? 'text-gray-500' : 'text-gray-900'} truncate flex-1" title="${name}">${displayName}</span>
-                    <span class="text-lg cursor-pointer select-none transition-transform duration-200 hover:scale-125 flex-shrink-0 p-0.5 leading-none ${heartAnimationClass}" data-devids='${devidsJson}' data-devdescript="${name}" title="${watched ? '取消关注' : '添加关注'}">${heartSymbol}</span>
+                    <span class="font-semibold text-base ${isNotFetched ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'} truncate flex-1" title="${name}">${displayName}</span>
+                    <span class="cursor-pointer select-none transition-transform duration-200 hover:scale-110 active:scale-95 flex-shrink-0 p-1 -mr-1 focus:outline-none focus:ring-2 focus:ring-yellow-500 dark:focus:ring-yellow-400 rounded" data-devids='${devidsJson}' data-devdescript="${name}" title="${watched ? '取消收藏' : '添加收藏'}">${starIcon}</span>
                 </div>
                 
                 <!-- 颜色条：显示使用情况（可用部分在最左侧） -->
                 <div class="mb-3">
                     ${isNotFetched ? `
-                        <div class="h-3 bg-gray-300 rounded-full"></div>
-                        <div class="flex justify-between items-center mt-1 text-xs text-gray-400">
+                        <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                        <div class="flex justify-between items-center mt-1 text-xs text-gray-400 dark:text-gray-500">
                             <span>未抓取到数据</span>
                         </div>
                     ` : `
-                        <div class="h-3 bg-gray-200 rounded-full overflow-hidden flex">
+                        <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex">
                             ${free > 0 ? `<div style="background-color: ${barColor}; width: ${freePercent}%"></div>` : ''}
-                            ${used > 0 ? `<div class="bg-gray-400" style="width: ${usagePercent}%"></div>` : ''}
-                            ${error > 0 ? `<div class="bg-red-500" style="width: ${errorPercent}%"></div>` : ''}
+                            ${used > 0 ? `<div class="bg-gray-400 dark:bg-gray-600" style="width: ${usagePercent}%"></div>` : ''}
+                            ${error > 0 ? `<div class="bg-red-500 dark:bg-red-600" style="width: ${errorPercent}%"></div>` : ''}
                         </div>
-                        <div class="flex justify-between items-center mt-1 text-xs text-gray-500">
+                        <div class="flex justify-between items-center mt-1 text-xs text-gray-500 dark:text-gray-400">
                             <span>可用: ${free}</span>
                             <span>已用: ${used}</span>
                             <span>共计: ${total}</span>
-                            ${error > 0 ? `<span class="text-red-600">故障: ${error}</span>` : ''}
+                            ${error > 0 ? `<span class="text-red-600 dark:text-red-400">故障: ${error}</span>` : ''}
                         </div>
                     `}
                 </div>
                 
                 <!-- 标签：校区和供应商 -->
                 <div class="flex flex-wrap gap-2">
-                    <span class="px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">${campusName}</span>
-                    ${provider_name ? `<span class="px-2 py-1 rounded-md text-xs font-medium bg-slate-50 text-slate-700 border border-slate-200 inline-flex items-center gap-1"><span class="text-[10px]">${shapeIcon}</span>${provider_name}</span>` : ''}
+                    <span class="px-2 py-1 rounded-md text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">${campusName}</span>
+                    ${provider_name ? `<span class="px-2 py-1 rounded-md text-xs font-medium bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 inline-flex items-center gap-1"><span class="text-[10px]">${shapeIcon}</span>${provider_name}</span>` : ''}
                 </div>
             </div>
         `;
@@ -1004,14 +1024,15 @@ function renderList(stations, allStationsDef = []) {
     listEl.querySelectorAll('[data-name]').forEach(item => {
         const stationName = item.dataset.name;
         
-        // 小红心点击事件（阻止冒泡，避免触发地图定位）
-        const heartIcon = item.querySelector('[data-devids]');
-        if (heartIcon) {
-            heartIcon.addEventListener('click', async (e) => {
+        // 收藏图标点击事件（阻止冒泡，避免触发地图定位）
+        const starIcon = item.querySelector('[data-devids]');
+        if (starIcon) {
+            starIcon.addEventListener('click', async (e) => {
                 e.stopPropagation(); // 阻止事件冒泡
+                e.preventDefault(); // 防止默认行为
                 // 从 data 属性获取 devid 列表、devdescript 和 provider_id
-                const devidsJson = heartIcon.getAttribute('data-devids');
-                const devdescript = heartIcon.getAttribute('data-devdescript');
+                const devidsJson = starIcon.getAttribute('data-devids');
+                const devdescript = starIcon.getAttribute('data-devdescript');
                 
                 // 优先从 data-provider-id 属性获取
                 let providerId = item.getAttribute('data-provider-id');
@@ -1055,8 +1076,8 @@ function renderList(stations, allStationsDef = []) {
         
         // 列表项点击事件，定位到地图（仅当已抓取到数据时）
         item.addEventListener('click', (e) => {
-            // 如果点击的是小红心，不触发地图定位
-            if (e.target.hasAttribute('data-devids')) {
+            // 如果点击的是关注图标或其子元素，不触发地图定位
+            if (e.target.closest('[data-devids]')) {
                 return;
             }
             
@@ -1103,6 +1124,32 @@ function updateTime(timestamp) {
     }
 }
 
+// 暗色模式相关函数
+function getTheme() {
+    return localStorage.getItem(THEME_STORAGE_KEY) || 'light';
+}
+
+function setTheme(theme) {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+    if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
+}
+
+function toggleTheme() {
+    const currentTheme = getTheme();
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    console.log(`切换主题: ${currentTheme} -> ${newTheme}`);
+    setTheme(newTheme);
+}
+
+function initTheme() {
+    const theme = getTheme();
+    setTheme(theme);
+}
+
 // 校区切换事件
 function setupCampusSelector() {
     const campusButtons = document.querySelectorAll('[data-campus]');
@@ -1112,10 +1159,10 @@ function setupCampusSelector() {
             campusButtons.forEach(b => {
                 if (b === btn) {
                     // 激活状态：蓝色背景
-                    b.className = 'px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-blue-600 text-white border border-blue-600 hover:bg-blue-700';
+                    b.className = 'px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-blue-600 dark:bg-blue-500 text-white border border-blue-600 dark:border-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600';
                 } else {
                     // 非激活状态：灰色背景
-                    b.className = 'px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-gray-100 text-gray-700 border border-gray-300 hover:bg-blue-50 hover:border-blue-600 hover:text-blue-600';
+                    b.className = 'px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-600 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400';
                 }
             });
             // 更新当前校区
@@ -1325,23 +1372,23 @@ function showLocationNotification(campusName, distance, isSwitched = false) {
     // 创建通知元素
     const notification = document.createElement('div');
     notification.id = 'location-notification';
-    notification.className = 'fixed top-4 right-4 bg-blue-50 border border-blue-200 rounded-lg shadow-lg p-4 max-w-sm z-[9999] animate-slide-in';
+    notification.className = 'fixed top-4 right-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg shadow-lg p-4 max-w-sm z-[9999] animate-slide-in';
     notification.style.zIndex = '9999'; // 确保在最上层
     const distanceText = distance !== undefined ? ` (距离您约 ${distance.toFixed(1)} 公里)` : '';
     const titleText = isSwitched ? '已自动切换到最近校区' : '检测到您的位置';
     notification.innerHTML = `
         <div class="flex items-start gap-3">
             <div class="flex-shrink-0">
-                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 </svg>
             </div>
             <div class="flex-1">
-                <p class="text-sm font-medium text-blue-900">${titleText}</p>
-                <p class="text-xs text-blue-700 mt-1">${campusName}${distanceText}</p>
+                <p class="text-sm font-medium text-blue-900 dark:text-blue-200">${titleText}</p>
+                <p class="text-xs text-blue-700 dark:text-blue-300 mt-1">${campusName}${distanceText}</p>
             </div>
-            <button onclick="this.parentElement.parentElement.remove()" class="flex-shrink-0 text-blue-400 hover:text-blue-600">
+            <button onclick="this.parentElement.parentElement.remove()" class="flex-shrink-0 text-blue-400 dark:text-blue-500 hover:text-blue-600 dark:hover:text-blue-400">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
@@ -1398,13 +1445,13 @@ function switchToCampus(campusId) {
     // 更新当前校区
     currentCampus = campusId;
     
-    // 更新按钮样式
+            // 更新按钮样式
     const campusButtons = document.querySelectorAll('[data-campus]');
     campusButtons.forEach(btn => {
         if (btn.dataset.campus === campusId) {
-            btn.className = 'px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-blue-600 text-white border border-blue-600 hover:bg-blue-700';
+            btn.className = 'px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-blue-600 dark:bg-blue-500 text-white border border-blue-600 dark:border-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600';
         } else {
-            btn.className = 'px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-gray-100 text-gray-700 border border-gray-300 hover:bg-blue-50 hover:border-blue-600 hover:text-blue-600';
+            btn.className = 'px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-600 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400';
         }
     });
     
@@ -1458,6 +1505,23 @@ async function loadConfig() {
 
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', async () => {
+    // 初始化暗色模式
+    initTheme();
+    
+    // 设置暗色模式切换按钮事件
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('主题切换按钮被点击');
+            toggleTheme();
+        });
+        console.log('暗色模式切换按钮已绑定事件');
+    } else {
+        console.error('未找到主题切换按钮');
+    }
+    
     // 默认校区为玉泉校区
     currentCampus = "2143";
     
@@ -1472,13 +1536,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const zjgButton = document.getElementById('campus-zjg');
     if (yuquanButton) {
         // 更新按钮样式为激活状态
-        yuquanButton.className = 'px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-blue-600 text-white border border-blue-600 hover:bg-blue-700';
+        yuquanButton.className = 'px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-blue-600 dark:bg-blue-500 text-white border border-blue-600 dark:border-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600';
     }
     if (allButton) {
-        allButton.className = 'px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-gray-100 text-gray-700 border border-gray-300 hover:bg-blue-50 hover:border-blue-600 hover:text-blue-600';
+        allButton.className = 'px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-600 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400';
     }
     if (zjgButton) {
-        zjgButton.className = 'px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-gray-100 text-gray-700 border border-gray-300 hover:bg-blue-50 hover:border-blue-600 hover:text-blue-600';
+        zjgButton.className = 'px-3 lg:px-4 py-2 rounded-md text-xs lg:text-sm font-medium transition-all duration-200 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-600 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400';
     }
     
     // 尝试自动检测最近的校区
