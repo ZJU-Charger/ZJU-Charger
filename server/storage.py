@@ -1,4 +1,5 @@
 """数据存储管理：latest.json"""
+
 import json
 import os
 from datetime import datetime, timezone, timedelta
@@ -11,16 +12,19 @@ LATEST_FILE = DATA_DIR / "latest.json"
 # 确保 data 目录存在
 DATA_DIR.mkdir(exist_ok=True)
 
+
 def _get_timestamp():
     """获取当前时间戳（UTC+8）"""
     tz_utc_8 = timezone(timedelta(hours=8))
     return datetime.now(tz_utc_8).isoformat()
 
+
 # ========== latest.json 管理 ==========
+
 
 def load_latest():
     """从 data/latest.json 读取缓存数据
-    
+
     Returns:
         包含 stations 数组的字典，格式：
         {
@@ -41,7 +45,7 @@ def load_latest():
     """
     if not LATEST_FILE.exists():
         return None
-    
+
     try:
         with open(LATEST_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -54,9 +58,10 @@ def load_latest():
         print(f"Error loading latest.json: {e}")
         return None
 
+
 def save_latest(data):
     """保存最新数据到 data/latest.json
-    
+
     数据格式：
     {
         "updated_at": "2025-01-01T00:00:00+08:00",
@@ -72,7 +77,7 @@ def save_latest(data):
             ...
         ]
     }
-    
+
     Args:
         data: 包含 stations 数组的字典，每个站点包含 provider_id 和 provider_name
     """
@@ -80,15 +85,15 @@ def save_latest(data):
         # 确保数据是字典格式
         if not isinstance(data, dict):
             raise ValueError("数据必须是字典格式")
-        
+
         # 确保包含 updated_at
         if "updated_at" not in data:
             data["updated_at"] = _get_timestamp()
-        
+
         # 确保包含 stations 数组
         if "stations" not in data:
             raise ValueError("数据必须包含 stations 字段")
-        
+
         with open(LATEST_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         return True

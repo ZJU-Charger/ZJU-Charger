@@ -33,17 +33,17 @@ from server.logging_config import setup_logging
 from server.station_loader import refresh_stations
 from fetcher.provider_manager import ProviderManager
 
+
 async def main():
     """主函数"""
     # 配置日志
     setup_logging(level=logging.INFO)
     logger = logging.getLogger(__name__)
-    
+
     logger.info("=" * 60)
     logger.info("开始更新站点信息（多服务商架构）")
     logger.info("=" * 60)
-    
-    
+
     # 显示可用的服务商
     try:
         manager = ProviderManager()
@@ -51,12 +51,12 @@ async def main():
         logger.info(f"可用服务商: {', '.join([p['name'] for p in providers])}")
     except Exception as e:
         logger.warning(f"获取服务商列表失败: {e}")
-    
+
     # 刷新站点信息
     logger.info("")
     logger.info("开始从所有服务商获取站点信息...")
     success = await refresh_stations()
-    
+
     if success:
         logger.info("")
         logger.info("=" * 60)
@@ -81,6 +81,6 @@ async def main():
         logger.error("  3. 查看上方日志获取详细错误信息")
         sys.exit(1)
 
+
 if __name__ == "__main__":
     asyncio.run(main())
-

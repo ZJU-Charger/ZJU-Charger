@@ -1,4 +1,5 @@
 """尼普顿服务商适配器"""
+
 import aiohttp
 import asyncio
 import json
@@ -25,7 +26,9 @@ class NeptuneProvider(ProviderBase):
         return "尼普顿"
 
     def __init__(self):
-        self.stations_file = Path(__file__).parent.parent.parent / "data" / "stations.json"
+        self.stations_file = (
+            Path(__file__).parent.parent.parent / "data" / "stations.json"
+        )
 
     async def __aenter__(self):
         return self
@@ -39,10 +42,7 @@ class NeptuneProvider(ProviderBase):
     def fetch_device_info(self, areaid: int, devaddress: str):
         """同步获取单个设备信息"""
         url = "http://www.szlzxn.cn/wxn/getDeviceInfo"
-        data = {
-            "areaId": 6,
-            "devaddress": devaddress
-        }
+        data = {"areaId": 6, "devaddress": devaddress}
         # print(devaddress)
 
         try:
@@ -86,15 +86,13 @@ class NeptuneProvider(ProviderBase):
     #             print("ERROR:", e)
     #             return -2
 
-
-
     # ---------------------------------------------
     # 抽象方法实现
     # ---------------------------------------------
-    
+
     async def fetch_stations(self, **kwargs) -> Optional[List[Dict[str, Any]]]:
         """获取站点列表
-        
+
         Returns:
             站点列表，如果失败返回 None
         """
@@ -108,10 +106,10 @@ class NeptuneProvider(ProviderBase):
         except Exception as e:
             logger.error(f"加载站点失败: {e}", exc_info=True)
             return None
-    
+
     async def fetch_status(self, **kwargs) -> Optional[List[Dict[str, Any]]]:
         """获取站点状态数据
-        
+
         Returns:
             统一格式的站点列表，每个站点包含：
             - provider_id: 服务商标识
@@ -134,13 +132,7 @@ class NeptuneProvider(ProviderBase):
         ordered = []  # 记录任务对应的设备
 
         for st in stations:
-            tasks.append(
-                asyncio.to_thread(
-                    self.fetch_device_info,
-                    6,
-                    st["devaddress"]
-                )
-            )
+            tasks.append(asyncio.to_thread(self.fetch_device_info, 6, st["devaddress"]))
             ordered.append((st["devaddress"], st))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -157,19 +149,19 @@ class NeptuneProvider(ProviderBase):
             obj = result.get("obj")
             if not obj:
                 continue
-            
+
             port = obj.get("portstatur", "")
             available = port.count("0")
             used = port.count("1")
             error = port.count("3")
             total = len(port)
-            
+
             # 获取站点名称（devdescript）
             site_name = dev.get("devdescript", "未知站点")
-            
+
             # 生成 id（使用 gen_area_hash）
             station_id = self.gen_area_hash(self.provider_name, site_name, devaddress)
-            
+
             # 在原有 station 信息基础上添加状态信息
             device_data = {
                 "devid": dev.get("devid"),
@@ -182,16 +174,16 @@ class NeptuneProvider(ProviderBase):
                 "error": error,
                 "total": total,
                 "areaid": dev.get("areaid", 6),
-                "station_id": station_id  # 添加 station_id 用于聚合
+                "station_id": station_id,  # 添加 station_id 用于聚合
             }
-            
+
             device_list.append(device_data)
 
         # 按 id 聚合设备，直接生成统一格式
         aggregated = {}
         for device in device_list:
             station_id = device["station_id"]
-            
+
             if station_id not in aggregated:
                 # 第一个设备，创建聚合条目（统一格式）
                 aggregated[station_id] = {
@@ -213,30 +205,29 @@ class NeptuneProvider(ProviderBase):
                 aggregated[station_id]["total"] += device["total"]
                 aggregated[station_id]["used"] += device["used"]
                 aggregated[station_id]["error"] += device["error"]
-        
+
         return list(aggregated.values())
-    
+
     def gen_area_hash(self, provider_name: str, site_name: str, devaddress: str) -> str:
         """生成充电区域的 hash 值
-        
+
         使用 provider_name 和 site_name 的组合生成 hash。
         对于尼普顿服务商，相同 site_name（devdescript）的设备应该属于同一个充电区域，
         因此相同 site_name 的设备会返回相同的 area_hash。
-        
+
         注意：虽然参数包含 devaddress，但对于尼普顿来说，相同 site_name 的设备
         应该属于同一个充电区域，所以不使用 devaddress 来区分。
-        
+
         Args:
             provider_name: 服务商显示名称（如 '尼普顿'）
             site_name: 站点名称（devdescript）
             devaddress: 设备地址（此参数保留以符合接口，但尼普顿不使用它来区分区域）
-            
+
         Returns:
             hash 字符串，用于标识充电区域
         """
         # 对于尼普顿，使用 provider_name 和 site_name 来生成区域 hash
         # 相同 site_name 的设备属于同一个充电区域，会返回相同的 hash
         hash_input = f"{provider_name}:{site_name}"
-        hash_obj = hashlib.md5(hash_input.encode('utf-8'))
+        hash_obj = hashlib.md5(hash_input.encode("utf-8"))
         return hash_obj.hexdigest()[:8]
-    
