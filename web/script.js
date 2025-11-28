@@ -140,6 +140,9 @@ function convertCoord(lat, lon) {
 // 当前地图图层
 let currentTileLayer = null;
 
+// 打印/下载插件实例
+let printer = null;
+
 // 初始化地图
 function initMap() {
     // 如果地图已存在，先移除
@@ -159,8 +162,30 @@ function initMap() {
     // 创建地图实例
     map = L.map('map').setView(center, DEFAULT_ZOOM);
     
-    // 添加当前配置的地图图层
+    // 添加当前配置的地图图层（这会设置 currentTileLayer）
     switchMap(MAP_CONFIG.useMap);
+    
+    // 初始化下载地图插件（隐藏默认控件，使用自定义按钮）
+    // 注意：必须在 switchMap 之后初始化，因为需要 currentTileLayer
+    if (typeof L.easyPrint !== 'undefined' && currentTileLayer) {
+        printer = L.easyPrint({
+            tileLayer: currentTileLayer,
+            exportOnly: true,
+            filename: 'ZJU-Charger-Map',
+            sizeModes: ['Current'],
+            hidden: true,  // 隐藏默认控件
+            hideControlContainer: true
+        }).addTo(map);
+    }
+}
+
+function manualPrint() {
+    if (printer) {
+        const filename = 'ZJU-Charger-Map-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        printer.printMap('CurrentSize', filename);
+    } else {
+        console.warn('下载插件未初始化');
+    }
 }
 
 // 切换地图后端
@@ -1494,6 +1519,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     fetchWatchlist();
     // 确保在 fetchStatus 执行时 currentCampus 仍然是正确的值
     await fetchStatus();
+    
+    // 设置下载按钮事件
+    const downloadBtn = document.getElementById('download-map-btn');
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', function() {
+            manualPrint();
+        });
+    }
     
     // 使用配置的间隔自动刷新
     setInterval(() => {

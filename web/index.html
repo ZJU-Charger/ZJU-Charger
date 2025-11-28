@@ -36,12 +36,22 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
                 <div id="map" class="w-full h-[400px] lg:h-[600px] flex-shrink-0"></div>
-                <div class="p-3 border-t border-gray-200 flex items-center justify-end flex-shrink-0">
-                    <label class="text-xs lg:text-sm text-gray-600 mr-2">地图服务：</label>
-                    <select id="map-selector" class="px-3 py-2 rounded-md text-xs lg:text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-600 transition-colors duration-200">
-                        <option value="gaode" selected>高德地图</option>
-                        <option value="osm">OpenStreetMap</option>
-                    </select>
+                <div class="p-3 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+                    <button id="download-map-btn" class="flex items-center gap-2 px-3 py-2 rounded-md text-xs lg:text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:border-blue-600 hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-600 transition-colors duration-200" title="下载地图">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        <span class="hidden sm:inline">下载地图</span>
+                    </button>
+                    <div class="flex items-center">
+                        <label class="text-xs lg:text-sm text-gray-600 mr-2">地图服务：</label>
+                        <select id="map-selector" class="px-3 py-2 rounded-md text-xs lg:text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-600 transition-colors duration-200">
+                            <option value="gaode" selected>高德地图</option>
+                            <option value="osm">OpenStreetMap</option>
+                        </select>
+                    </div>
                 </div>
             </div>
             
@@ -84,6 +94,7 @@
     </footer>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-easyprint@2.1.9/dist/bundle.js"></script>
     <script src="leaflet-coord-transform.js"></script>
     <script src="script.js"></script>
 </body>
