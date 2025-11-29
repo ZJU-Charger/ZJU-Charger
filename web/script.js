@@ -10,6 +10,10 @@ let currentCampus = "2143";
 // 当前选中的服务商（空字符串表示全部）
 let currentProvider = "";
 
+// 服务商图层组
+let providerLayerGroups = {}; // { providerId: L.layerGroup }
+let layerControl = null; // Leaflet 图层控制器
+
 // 可用服务商列表
 let availableProviders = [];
 
@@ -145,6 +149,9 @@ function convertCoord(lat, lon) {
 // 当前地图图层
 let currentTileLayer = null;
 
+// 所有底图图层
+let baseLayers = {};
+
 // 打印/下载插件实例
 let printer = null;
 
@@ -167,11 +174,19 @@ function initMap() {
     // 创建地图实例
     map = L.map('map').setView(center, DEFAULT_ZOOM);
     
-    // 添加当前配置的地图图层（这会设置 currentTileLayer）
-    switchMap(MAP_CONFIG.useMap);
+    // 创建所有底图图层
+    baseLayers = {};
+    Object.entries(MAP_PROVIDERS).forEach(([key, provider]) => {
+        const tileLayer = L.tileLayer(provider.tileLayer, provider.options);
+        baseLayers[provider.name] = tileLayer;
+    });
+    
+    // 添加默认地图图层
+    const defaultProvider = MAP_PROVIDERS[MAP_CONFIG.useMap];
+    currentTileLayer = baseLayers[defaultProvider.name];
+    currentTileLayer.addTo(map);
     
     // 初始化下载地图插件（隐藏默认控件，使用自定义按钮）
-    // 注意：必须在 switchMap 之后初始化，因为需要 currentTileLayer
     if (typeof L.easyPrint !== 'undefined' && currentTileLayer) {
         printer = L.easyPrint({
             tileLayer: currentTileLayer,
@@ -182,6 +197,71 @@ function initMap() {
             hideControlContainer: true
         }).addTo(map);
     }
+    
+    // 监听底图切换事件，更新 currentTileLayer 和下载插件
+    map.on('baselayerchange', function(e) {
+        currentTileLayer = e.layer;
+        MAP_CONFIG.useMap = Object.keys(MAP_PROVIDERS).find(key => 
+            MAP_PROVIDERS[key].name === e.name
+        ) || MAP_CONFIG.useMap;
+        
+        // 更新坐标系配置
+        const provider = MAP_PROVIDERS[MAP_CONFIG.useMap];
+        MAP_CONFIG.webCoordSystem = provider.coordSystem;
+        
+        // 如果当前位置标记存在，需要重新转换坐标
+        if (currentLocationMarker) {
+            map.removeLayer(currentLocationMarker);
+            currentLocationMarker = null;
+        }
+        
+        // 重新初始化下载地图插件
+        if (printer) {
+            map.removeControl(printer);
+            printer = null;
+        }
+        if (typeof L.easyPrint !== 'undefined' && currentTileLayer) {
+            printer = L.easyPrint({
+                tileLayer: currentTileLayer,
+                exportOnly: true,
+                filename: 'ZJU-Charger-Map',
+                sizeModes: ['Current'],
+                hidden: true,
+                hideControlContainer: true
+            }).addTo(map);
+        }
+        
+        // 重新渲染所有标记（因为坐标系改变了）
+        if (window.currentStations && window.currentStations.length > 0) {
+            const allStationsForMap = [...(window.currentStations || [])];
+            if (window.allStationsDef && window.allStationsDef.length > 0) {
+                const fetchedNames = new Set((window.currentStations || []).map(s => s.name));
+                window.allStationsDef.forEach(def => {
+                    const devdescript = def.devdescript || def.name;
+                    if (!fetchedNames.has(devdescript)) {
+                        allStationsForMap.push({
+                            name: devdescript,
+                            free: 0,
+                            total: 0,
+                            used: 0,
+                            error: 0,
+                            devids: def.devid ? [def.devid] : [],
+                            provider_id: def.provider_id || 'unknown',
+                            provider_name: def.provider_name || '未知',
+                            campus: def.areaid,
+                            lat: def.latitude,
+                            lon: def.longitude,
+                            isFetched: false
+                        });
+                    }
+                });
+            }
+            renderMap(allStationsForMap, false);
+        }
+    });
+    
+    // 初始化图层控制器（即使还没有数据，也要显示底图选择）
+    updateLayerControl();
 }
 
 function manualPrint() {
@@ -218,108 +298,7 @@ function manualPrint() {
     }
 }
 
-// 切换地图后端
-function switchMap(mapProvider) {
-    if (!map) {
-        console.error('地图未初始化');
-        return;
-    }
-    
-    // 验证地图提供商
-    if (!MAP_PROVIDERS[mapProvider]) {
-        console.error(`未知的地图提供商: ${mapProvider}`);
-        return;
-    }
-    
-    // 移除旧图层
-    if (currentTileLayer) {
-        map.removeLayer(currentTileLayer);
-    }
-    
-    // 如果当前位置标记存在，需要重新转换坐标
-    if (currentLocationMarker) {
-        const latlng = currentLocationMarker.getLatLng();
-        // 获取原始 WGS84 坐标（如果之前保存了）
-        // 这里简化处理：移除旧标记，用户需要重新定位
-        map.removeLayer(currentLocationMarker);
-        currentLocationMarker = null;
-    }
-    
-    // 更新配置
-    MAP_CONFIG.useMap = mapProvider;
-    const provider = MAP_PROVIDERS[mapProvider];
-    MAP_CONFIG.webCoordSystem = provider.coordSystem;
-    
-    // 创建新图层
-    currentTileLayer = L.tileLayer(provider.tileLayer, provider.options);
-    currentTileLayer.addTo(map);
-    
-    // 重新初始化下载地图插件（因为图层已更换）
-    if (printer) {
-        map.removeControl(printer);
-        printer = null;
-    }
-    if (typeof L.easyPrint !== 'undefined' && currentTileLayer) {
-        printer = L.easyPrint({
-            tileLayer: currentTileLayer,
-            exportOnly: true,
-            filename: 'ZJU-Charger-Map',
-            sizeModes: ['Current'],
-            hidden: true,  // 隐藏默认控件
-            hideControlContainer: true
-        }).addTo(map);
-    }
-    
-    // 更新选择器状态
-    updateMapSelector();
-    
-    // 重新转换并设置中心点（保持当前缩放级别）
-    const center = convertCoord(DEFAULT_CENTER[0], DEFAULT_CENTER[1]);
-    map.setView(center, map.getZoom());
-    
-    // 重新渲染所有标记（因为坐标系改变了）
-    // 切换地图服务时保持当前位置（false），因为用户可能已经定位到某个位置
-    if (window.currentStations && window.currentStations.length > 0) {
-        // 合并所有站点用于地图显示（包括未抓取的）
-        const allStationsForMap = [...(window.currentStations || [])];
-        if (window.allStationsDef && window.allStationsDef.length > 0) {
-            const fetchedNames = new Set((window.currentStations || []).map(s => s.name));
-            window.allStationsDef.forEach(def => {
-                const devdescript = def.devdescript || def.name;
-                if (!fetchedNames.has(devdescript)) {
-                    const matchesProvider = !currentProvider || def.provider_id === currentProvider;
-                    if (matchesProvider) {
-                        allStationsForMap.push({
-                            name: devdescript,
-                            free: 0,
-                            total: 0,
-                            used: 0,
-                            error: 0,
-                            devids: def.devid ? [def.devid] : [],
-                            provider_id: def.provider_id || 'unknown',
-                            provider_name: def.provider_name || '未知',
-                            campus: def.areaid,
-                            lat: def.latitude,
-                            lon: def.longitude,
-                            isFetched: false
-                        });
-                    }
-                }
-            });
-        }
-        renderMap(allStationsForMap, false); // 切换地图服务时保持当前位置
-    }
-    
-    console.log(`已切换到: ${provider.name} (${provider.coordSystem})`);
-}
-
-// 更新地图选择器状态
-function updateMapSelector() {
-    const selector = document.getElementById('map-selector');
-    if (selector) {
-        selector.value = MAP_CONFIG.useMap;
-    }
-}
+// switchMap 函数已移除，现在使用图层控制器自动处理底图切换
 
 // 从 localStorage 加载关注列表
 function loadWatchlistFromStorage() {
@@ -731,23 +710,21 @@ async function fetchStatus() {
                     allStationsDef.forEach(def => {
                         const devdescript = def.devdescript || def.name;
                         if (!fetchedNames.has(devdescript)) {
-                            const matchesProvider = !currentProvider || def.provider_id === currentProvider;
-                            if (matchesProvider) {
-                                allStationsForMap.push({
-                                    name: devdescript,
-                                    free: 0,
-                                    total: 0,
-                                    used: 0,
-                                    error: 0,
-                                    devids: def.devid ? [def.devid] : [],
-                                    provider_id: def.provider_id || 'unknown',
-                                    provider_name: def.provider_name || '未知',
-                                    campus: def.areaid,
-                                    lat: def.latitude,
-                                    lon: def.longitude,
-                                    isFetched: false
-                                });
-                            }
+                            // 不再按服务商过滤地图显示（由图层控制器控制）
+                            allStationsForMap.push({
+                                name: devdescript,
+                                free: 0,
+                                total: 0,
+                                used: 0,
+                                error: 0,
+                                devids: def.devid ? [def.devid] : [],
+                                provider_id: def.provider_id || 'unknown',
+                                provider_name: def.provider_name || '未知',
+                                campus: def.areaid,
+                                lat: def.latitude,
+                                lon: def.longitude,
+                                isFetched: false
+                            });
                         }
                     });
                 }
@@ -803,6 +780,38 @@ function filterStationsByProvider(stations) {
     return stations.filter(s => s.provider_id === currentProvider);
 }
 
+// 更新图层控制器
+function updateLayerControl() {
+    // 构建图层组映射，用于图层控制器
+    const overlayMaps = {};
+    
+    // 获取服务商名称映射
+    const providerNameMap = {};
+    if (availableProviders && availableProviders.length > 0) {
+        availableProviders.forEach(provider => {
+            providerNameMap[provider.id] = provider.name;
+        });
+    }
+    
+    // 为每个图层组创建显示名称
+    Object.entries(providerLayerGroups).forEach(([providerId, layerGroup]) => {
+        // 获取服务商名称，如果没有则使用 providerId
+        const providerName = providerNameMap[providerId] || providerId || '未知服务商';
+        overlayMaps[providerName] = layerGroup;
+    });
+    
+    // 如果图层控制器已存在，先移除
+    if (layerControl) {
+        map.removeControl(layerControl);
+    }
+    
+    // 创建新的图层控制器（包含底图和覆盖层）
+    layerControl = L.control.layers(baseLayers, overlayMaps, {
+        collapsed: true,
+        position: 'topright'
+    }).addTo(map);
+}
+
 // 渲染地图
 // allowFitBounds: 是否允许自动调整地图视野（true: 允许，false: 保持当前位置）
 function renderMap(stations, allowFitBounds = false) {
@@ -810,13 +819,17 @@ function renderMap(stations, allowFitBounds = false) {
     const currentCenter = map.getCenter();
     const currentZoom = map.getZoom();
     
-    // 清除现有标记（只清除充电桩标记，保留当前位置标记）
-    markers.forEach(marker => map.removeLayer(marker));
+    // 清除现有标记和图层组（只清除充电桩标记，保留当前位置标记）
+    // 移除所有图层组
+    Object.values(providerLayerGroups).forEach(layerGroup => {
+        map.removeLayer(layerGroup);
+        layerGroup.clearLayers();
+    });
+    providerLayerGroups = {};
     markers = [];
     
-    // 按校区和服务商过滤
+    // 按校区过滤（不再按服务商过滤，因为使用图层控制）
     let filteredStations = filterStationsByCampus(stations);
-    filteredStations = filterStationsByProvider(filteredStations);
     
     // 服务商形状映射（用于区分不同服务商）
     const providerShapes = {
@@ -892,73 +905,105 @@ function renderMap(stations, allowFitBounds = false) {
         `;
     }
     
-    // 显示所有站点（包括非空闲的和未抓取的）
+    // 按服务商分组站点
+    const stationsByProvider = {};
     filteredStations.forEach(station => {
-        const { name, lat, lon, free, total, provider_id, provider_name, isFetched } = station;
+        const providerId = station.provider_id || 'unknown';
+        const providerName = station.provider_name || '未知服务商';
         
-        // 如果没有坐标，跳过
-        if (!lat || !lon) {
-            return;
+        if (!stationsByProvider[providerId]) {
+            stationsByProvider[providerId] = {
+                providerId: providerId,
+                providerName: providerName,
+                stations: []
+            };
         }
+        stationsByProvider[providerId].stations.push(station);
+    });
+    
+    // 为每个服务商创建图层组
+    Object.values(stationsByProvider).forEach(providerData => {
+        const { providerId, providerName, stations } = providerData;
         
-        // 坐标转换
-        const [markerLat, markerLon] = convertCoord(lat, lon);
+        // 创建图层组
+        const layerGroup = L.layerGroup();
+        providerLayerGroups[providerId] = layerGroup;
         
-        // 根据空闲数量选择颜色（统一的颜色方案）
-        let color = '#10b981'; // 绿色：有空闲（更柔和的绿色）
-        if (isFetched === false) {
-            color = '#9ca3af'; // 灰色：未抓取到
-        } else if (free === 0) {
-            color = '#ef4444'; // 红色：无空闲
-        } else if (free <= 2) {
-            color = '#f59e0b'; // 橙色：少量空闲
-        }
-        
-        // 获取服务商对应的形状
-        const shape = providerShapes[provider_id] || 'circle';
-        
-        // 创建带数字的自定义图标（使用不同形状）
-        const displayNumber = isFetched === false ? '?' : free;
-        const iconHtml = createMarkerIcon(color, shape, displayNumber);
-        
-        const customIcon = L.divIcon({
-            html: iconHtml,
-            className: '',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
+        // 为每个站点创建标记并添加到图层组
+        stations.forEach(station => {
+            const { name, lat, lon, free, total, isFetched } = station;
+            
+            // 如果没有坐标，跳过
+            if (!lat || !lon) {
+                return;
+            }
+            
+            // 坐标转换
+            const [markerLat, markerLon] = convertCoord(lat, lon);
+            
+            // 根据空闲数量选择颜色（统一的颜色方案）
+            let color = '#10b981'; // 绿色：有空闲（更柔和的绿色）
+            if (isFetched === false) {
+                color = '#9ca3af'; // 灰色：未抓取到
+            } else if (free === 0) {
+                color = '#ef4444'; // 红色：无空闲
+            } else if (free <= 2) {
+                color = '#f59e0b'; // 橙色：少量空闲
+            }
+            
+            // 获取服务商对应的形状
+            const shape = providerShapes[providerId] || 'circle';
+            
+            // 创建带数字的自定义图标（使用不同形状）
+            const displayNumber = isFetched === false ? '?' : free;
+            const iconHtml = createMarkerIcon(color, shape, displayNumber);
+            
+            const customIcon = L.divIcon({
+                html: iconHtml,
+                className: '',
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+            
+            // 创建标记并添加到图层组
+            const marker = L.marker([markerLat, markerLon], {
+                icon: customIcon
+            });
+            
+            // 添加弹出窗口（显示服务商信息）
+            if (isFetched === false) {
+                marker.bindPopup(`
+                    <div style="text-align: center; min-width: 120px;">
+                        <strong style="font-size: 14px;">${name}</strong><br>
+                        <span style="font-size: 11px; color: #6b7280;">${providerName || providerId}</span><br>
+                        <span style="font-size: 13px; margin-top: 4px; display: inline-block; color: #9ca3af;">
+                            未抓取到数据
+                        </span>
+                    </div>
+                `);
+            } else {
+                const freeColor = free === 0 ? '#ef4444' : '#10b981';
+                marker.bindPopup(`
+                    <div style="text-align: center; min-width: 120px;">
+                        <strong style="font-size: 14px;">${name}</strong><br>
+                        <span style="font-size: 11px; color: #6b7280;">${providerName || providerId}</span><br>
+                        <span style="font-size: 13px; margin-top: 4px; display: inline-block;">
+                            可用: <span style="color: ${freeColor}; font-weight: bold;">${free}</span> / ${total}
+                        </span>
+                    </div>
+                `);
+            }
+            
+            marker.addTo(layerGroup);
+            markers.push(marker);
         });
         
-        // 创建标记
-        const marker = L.marker([markerLat, markerLon], {
-            icon: customIcon
-        }).addTo(map);
-        
-        // 添加弹出窗口（显示服务商信息）
-        if (isFetched === false) {
-            marker.bindPopup(`
-                <div style="text-align: center; min-width: 120px;">
-                    <strong style="font-size: 14px;">${name}</strong><br>
-                    <span style="font-size: 11px; color: #6b7280;">${provider_name || provider_id}</span><br>
-                    <span style="font-size: 13px; margin-top: 4px; display: inline-block; color: #9ca3af;">
-                        未抓取到数据
-                    </span>
-                </div>
-            `);
-        } else {
-            const freeColor = free === 0 ? '#ef4444' : '#10b981';
-            marker.bindPopup(`
-                <div style="text-align: center; min-width: 120px;">
-                    <strong style="font-size: 14px;">${name}</strong><br>
-                    <span style="font-size: 11px; color: #6b7280;">${provider_name || provider_id}</span><br>
-                    <span style="font-size: 13px; margin-top: 4px; display: inline-block;">
-                        可用: <span style="color: ${freeColor}; font-weight: bold;">${free}</span> / ${total}
-                    </span>
-                </div>
-            `);
-        }
-        
-        markers.push(marker);
+        // 将图层组添加到地图（默认全部显示）
+        layerGroup.addTo(map);
     });
+    
+    // 更新图层控制器
+    updateLayerControl();
     
     // 根据 allowFitBounds 参数决定是否调整地图视野
     if (allowFitBounds || isFirstLoad) {
@@ -1340,23 +1385,21 @@ function setupCampusSelector() {
             window.allStationsDef.forEach(def => {
                 const devdescript = def.devdescript || def.name;
                 if (!fetchedNames.has(devdescript)) {
-                    const matchesProvider = !currentProvider || def.provider_id === currentProvider;
-                    if (matchesProvider) {
-                        allStationsForMap.push({
-                            name: devdescript,
-                            free: 0,
-                            total: 0,
-                            used: 0,
-                            error: 0,
-                            devids: def.devid ? [def.devid] : [],
-                            provider_id: def.provider_id || 'unknown',
-                            provider_name: def.provider_name || '未知',
-                            campus: def.areaid,
-                            lat: def.latitude,
-                            lon: def.longitude,
-                            isFetched: false
-                        });
-                    }
+                    // 不再按服务商过滤地图显示（由图层控制器控制）
+                    allStationsForMap.push({
+                        name: devdescript,
+                        free: 0,
+                        total: 0,
+                        used: 0,
+                        error: 0,
+                        devids: def.devid ? [def.devid] : [],
+                        provider_id: def.provider_id || 'unknown',
+                        provider_name: def.provider_name || '未知',
+                        campus: def.areaid,
+                        lat: def.latitude,
+                        lon: def.longitude,
+                        isFetched: false
+                    });
                 }
             });
         }
@@ -1387,23 +1430,21 @@ function setupProviderSelector() {
             window.allStationsDef.forEach(def => {
                 const devdescript = def.devdescript || def.name;
                 if (!fetchedNames.has(devdescript)) {
-                    const matchesProvider = !currentProvider || def.provider_id === currentProvider;
-                    if (matchesProvider) {
-                        allStationsForMap.push({
-                            name: devdescript,
-                            free: 0,
-                            total: 0,
-                            used: 0,
-                            error: 0,
-                            devids: def.devid ? [def.devid] : [],
-                            provider_id: def.provider_id || 'unknown',
-                            provider_name: def.provider_name || '未知',
-                            campus: def.areaid,
-                            lat: def.latitude,
-                            lon: def.longitude,
-                            isFetched: false
-                        });
-                    }
+                    // 不再按服务商过滤地图显示（由图层控制器控制）
+                    allStationsForMap.push({
+                        name: devdescript,
+                        free: 0,
+                        total: 0,
+                        used: 0,
+                        error: 0,
+                        devids: def.devid ? [def.devid] : [],
+                        provider_id: def.provider_id || 'unknown',
+                        provider_name: def.provider_name || '未知',
+                        campus: def.areaid,
+                        lat: def.latitude,
+                        lon: def.longitude,
+                        isFetched: false
+                    });
                 }
             });
         }
@@ -1415,16 +1456,7 @@ function setupProviderSelector() {
     }
 }
 
-// 地图切换事件
-const mapSelector = document.getElementById('map-selector');
-if (mapSelector) {
-    mapSelector.addEventListener('change', (e) => {
-        const mapProvider = e.target.value;
-        if (mapProvider && MAP_PROVIDERS[mapProvider]) {
-            switchMap(mapProvider);
-        }
-    });
-}
+// 地图切换事件已移除，现在使用图层控制器处理
 
 // 刷新按钮事件
 document.getElementById('refresh-btn').addEventListener('click', () => {
@@ -1796,23 +1828,21 @@ function switchToCampus(campusId) {
             window.allStationsDef.forEach(def => {
                 const devdescript = def.devdescript || def.name;
                 if (!fetchedNames.has(devdescript)) {
-                    const matchesProvider = !currentProvider || def.provider_id === currentProvider;
-                    if (matchesProvider) {
-                        allStationsForMap.push({
-                            name: devdescript,
-                            free: 0,
-                            total: 0,
-                            used: 0,
-                            error: 0,
-                            devids: def.devid ? [def.devid] : [],
-                            provider_id: def.provider_id || 'unknown',
-                            provider_name: def.provider_name || '未知',
-                            campus: def.areaid,
-                            lat: def.latitude,
-                            lon: def.longitude,
-                            isFetched: false
-                        });
-                    }
+                    // 不再按服务商过滤地图显示（由图层控制器控制）
+                    allStationsForMap.push({
+                        name: devdescript,
+                        free: 0,
+                        total: 0,
+                        used: 0,
+                        error: 0,
+                        devids: def.devid ? [def.devid] : [],
+                        provider_id: def.provider_id || 'unknown',
+                        provider_name: def.provider_name || '未知',
+                        campus: def.areaid,
+                        lat: def.latitude,
+                        lon: def.longitude,
+                        isFetched: false
+                    });
                 }
             });
         }
@@ -1867,7 +1897,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupCampusSelector();
     setupProviderSelector();
     // 初始化地图选择器状态
-    updateMapSelector();
+    // updateMapSelector 已移除，现在使用图层控制器
     // 设置默认校区为玉泉校区按钮样式
     const yuquanButton = document.getElementById('campus-yuquan');
     const allButton = document.getElementById('campus-all');
