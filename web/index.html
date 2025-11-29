@@ -68,14 +68,23 @@
             <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden flex flex-col transition-colors duration-200 flex-1 min-h-[50vh] lg:min-h-0">
                 <div id="map" class="w-full flex-1 min-h-[50vh] lg:min-h-0"></div>
                 <div class="p-3 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 sm:gap-4 flex-shrink-0 transition-colors duration-200">
-                    <button id="download-map-btn" class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:border-blue-600 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-600 dark:focus:border-blue-500 transition-colors duration-200 flex-1 sm:flex-none sm:w-auto" title="下载地图">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
-                        <span>下载地图</span>
-                    </button>
+                    <div class="flex items-center gap-2 flex-1 sm:flex-none">
+                        <button id="location-btn" class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:border-blue-600 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-600 dark:focus:border-blue-500 transition-colors duration-200" title="定位到当前位置">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            <span class="hidden sm:inline">定位</span>
+                        </button>
+                        <button id="download-map-btn" class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:border-blue-600 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-600 dark:focus:border-blue-500 transition-colors duration-200" title="下载地图">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            <span class="hidden sm:inline">下载地图</span>
+                        </button>
+                    </div>
                     <div class="flex items-center gap-2 flex-1 sm:flex-none justify-center sm:justify-end">
                         <label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap hidden sm:inline">地图服务：</label>
                         <select id="map-selector" class="px-3 py-2 rounded-md text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:border-blue-600 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-600 dark:focus:border-blue-500 transition-colors duration-200 min-w-[120px] sm:min-w-[140px]">

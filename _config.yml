@@ -8,8 +8,8 @@ description: 查询小龟充电桩状态
 theme: minima
 
 plugins:
- - jekyll-feed
- - jekyll-seo-tag
+  - jekyll-feed
+  - jekyll-seo-tag
 
 sass:
   quiet_deps: true

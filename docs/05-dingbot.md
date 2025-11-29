@@ -52,8 +52,8 @@ python run_server.py
 
 ### 可用命令
 
-| 命令 | 说明 | 示例 |
-|------|------|------|
+| 命令   | 说明             | 示例         |
+| ------ | ---------------- | ------------ |
 | `全部` | 查询所有站点状态 | 发送「全部」 |
 
 ### 命令格式
@@ -207,60 +207,56 @@ result = await execute_all_command()
 
 1. 在 `ding/commands.py` 中添加命令解析：
 
-    ```python
-    async def parse_command(text):
-        text = text.strip()
-        
-        if text == "全部":
-            return ("all", None)
-        elif text.startswith("查询"):
-            # 解析查询参数
-            site_name = text[2:].strip()
-            return ("query", {"site_name": site_name})
-        else:
-            return ("unknown", None)
-    ```
+   ```python
+   async def parse_command(text):
+       text = text.strip()
+
+       if text == "全部":
+           return ("all", None)
+       elif text.startswith("查询"):
+           # 解析查询参数
+           site_name = text[2:].strip()
+           return ("query", {"site_name": site_name})
+       else:
+           return ("unknown", None)
+   ```
 
 2. 添加命令执行函数：
 
-    ```python
-    async def execute_query_command(site_name):
-        """执行查询命令"""
-        # 实现查询逻辑
-        pass
-    ```
+   ```python
+   async def execute_query_command(site_name):
+       """执行查询命令"""
+       # 实现查询逻辑
+       pass
+   ```
 
 3. 在 `ding/webhook.py` 中处理新命令：
 
-    ```python
-    if command_type == "all":
-        result = await execute_all_command()
-    elif command_type == "query":
-        result = await execute_query_command(args["site_name"])
-    ```
+   ```python
+   if command_type == "all":
+       result = await execute_all_command()
+   elif command_type == "query":
+       result = await execute_query_command(args["site_name"])
+   ```
 
 ## 故障排查
 
 ### 常见问题
 
 1. **机器人无响应**
-
    - 检查 Webhook 地址是否正确
    - 检查服务器是否正常运行
    - 查看服务器日志
 
 2. **签名验证失败**
-
    - 检查 `DINGTALK_SECRET` 是否正确
    - 检查服务器时间是否准确（签名包含时间戳）
 
 3. **命令不识别**
-
    - 检查命令文本是否完全匹配（区分大小写）
    - 查看 `commands.py` 中的命令定义
 
 4. **API 请求失败**
-
    - 检查 `API_URL` 配置是否正确
    - 检查网络连接
    - 检查 API 服务器是否可访问
@@ -269,39 +265,39 @@ result = await execute_all_command()
 
 1. **查看日志**
 
-    ```bash
-    # 查看服务器日志
-    tail -f logs/server.log
+   ```bash
+   # 查看服务器日志
+   tail -f logs/server.log
 
-    # 或查看控制台输出
-    python run_server.py --log-level DEBUG
-    ```
+   # 或查看控制台输出
+   python run_server.py --log-level DEBUG
+   ```
 
 2. **测试 Webhook**
 
-    使用 curl 测试 Webhook：
+   使用 curl 测试 Webhook：
 
-    ```bash
-    curl -X POST http://localhost:8000/ding/webhook \
-      -H "Content-Type: application/json" \
-      -H "timestamp: 1234567890" \
-      -H "sign: your_sign" \
-      -d '{
-        "msgtype": "text",
-        "text": {
-          "content": "全部"
-        }
-      }'
-    ```
+   ```bash
+   curl -X POST http://localhost:8000/ding/webhook \
+     -H "Content-Type: application/json" \
+     -H "timestamp: 1234567890" \
+     -H "sign: your_sign" \
+     -d '{
+       "msgtype": "text",
+       "text": {
+         "content": "全部"
+       }
+     }'
+   ```
 
 3. **检查配置**
 
-    ```python
-    from server.config import Config
+   ```python
+   from server.config import Config
 
-    print(f"Webhook: {Config.DINGTALK_WEBHOOK}")
-    print(f"Secret: {Config.DINGTALK_SECRET}")
-    ```
+   print(f"Webhook: {Config.DINGTALK_WEBHOOK}")
+   print(f"Secret: {Config.DINGTALK_SECRET}")
+   ```
 
 ## 最佳实践
 

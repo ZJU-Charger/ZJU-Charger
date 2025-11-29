@@ -1,6 +1,8 @@
 // 地图和标记
 let map = null;
 let markers = [];
+let currentLocationMarker = null; // 当前位置标记
+let isFirstLoad = true; // 是否是首次加载数据
 
 // 当前选中的校区 campus（空字符串表示全部），默认选择玉泉校区
 let currentCampus = "2143";
@@ -55,8 +57,10 @@ const MAP_PROVIDERS = {
         tileLayer: 'http://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
         options: {
             subdomains: ['1', '2', '3', '4'],
-            minZoom: 1,
-            maxZoom: 19,
+            minZoom: 1, // Leaflet 允许的最小缩放级别
+            minNativeZoom: 3, // 高德地图实际支持的最小缩放级别，小于此级别时使用3级瓦片缩小显示
+            maxZoom: 19, // Leaflet 允许的最大缩放级别
+            maxNativeZoom: 18, // 高德地图实际支持的最大缩放级别，超过此级别时使用18级瓦片放大显示
             attribution: '© 高德地图'
         }
     },
@@ -232,6 +236,15 @@ function switchMap(mapProvider) {
         map.removeLayer(currentTileLayer);
     }
     
+    // 如果当前位置标记存在，需要重新转换坐标
+    if (currentLocationMarker) {
+        const latlng = currentLocationMarker.getLatLng();
+        // 获取原始 WGS84 坐标（如果之前保存了）
+        // 这里简化处理：移除旧标记，用户需要重新定位
+        map.removeLayer(currentLocationMarker);
+        currentLocationMarker = null;
+    }
+    
     // 更新配置
     MAP_CONFIG.useMap = mapProvider;
     const provider = MAP_PROVIDERS[mapProvider];
@@ -260,11 +273,12 @@ function switchMap(mapProvider) {
     // 更新选择器状态
     updateMapSelector();
     
-    // 重新转换并设置中心点
+    // 重新转换并设置中心点（保持当前缩放级别）
     const center = convertCoord(DEFAULT_CENTER[0], DEFAULT_CENTER[1]);
     map.setView(center, map.getZoom());
     
     // 重新渲染所有标记（因为坐标系改变了）
+    // 切换地图服务时保持当前位置（false），因为用户可能已经定位到某个位置
     if (window.currentStations && window.currentStations.length > 0) {
         // 合并所有站点用于地图显示（包括未抓取的）
         const allStationsForMap = [...(window.currentStations || [])];
@@ -293,7 +307,7 @@ function switchMap(mapProvider) {
                 }
             });
         }
-        renderMap(allStationsForMap);
+        renderMap(allStationsForMap, false); // 切换地图服务时保持当前位置
     }
     
     console.log(`已切换到: ${provider.name} (${provider.coordSystem})`);
@@ -738,9 +752,16 @@ async function fetchStatus() {
                     });
                 }
                 
-                renderMap(allStationsForMap);
+                // 刷新数据时，只更新标记和列表，不重置地图视图
+                // 传入 false 表示不允许自动调整地图视野，保持用户当前位置
+                renderMap(allStationsForMap, false);
                 renderList(data.stations, allStationsDef);
                 updateTime(data.updated_at);
+                
+                // 标记首次加载完成
+                if (isFirstLoad) {
+                    isFirstLoad = false;
+                }
             }
         } else {
             throw new Error('数据格式错误：缺少 stations 字段');
@@ -783,8 +804,13 @@ function filterStationsByProvider(stations) {
 }
 
 // 渲染地图
-function renderMap(stations) {
-    // 清除现有标记
+// allowFitBounds: 是否允许自动调整地图视野（true: 允许，false: 保持当前位置）
+function renderMap(stations, allowFitBounds = false) {
+    // 保存当前地图视图状态（中心点和缩放级别）
+    const currentCenter = map.getCenter();
+    const currentZoom = map.getZoom();
+    
+    // 清除现有标记（只清除充电桩标记，保留当前位置标记）
     markers.forEach(marker => map.removeLayer(marker));
     markers = [];
     
@@ -934,15 +960,24 @@ function renderMap(stations) {
         markers.push(marker);
     });
     
-    // 如果有标记，调整地图视野
-    if (markers.length > 0) {
-        const group = new L.featureGroup(markers);
-        map.fitBounds(group.getBounds().pad(0.1));
-    } else if (currentCampus && CAMPUS_CONFIG[currentCampus]) {
-        // 如果没有标记但选择了校区，定位到校区中心
-        const campus = CAMPUS_CONFIG[currentCampus];
-        const center = convertCoord(campus.center[0], campus.center[1]);
-        map.setView(center, DEFAULT_ZOOM);
+    // 根据 allowFitBounds 参数决定是否调整地图视野
+    if (allowFitBounds || isFirstLoad) {
+        // 允许调整视野：首次加载或主动切换校区/服务商时
+        if (markers.length > 0) {
+            const group = new L.featureGroup(markers);
+            map.fitBounds(group.getBounds().pad(0.1));
+        } else if (currentCampus && CAMPUS_CONFIG[currentCampus]) {
+            // 如果没有标记但选择了校区，定位到校区中心
+            const campus = CAMPUS_CONFIG[currentCampus];
+            const center = convertCoord(campus.center[0], campus.center[1]);
+            map.setView(center, DEFAULT_ZOOM);
+        }
+        if (isFirstLoad) {
+            isFirstLoad = false;
+        }
+    } else {
+        // 不允许调整视野：数据刷新时保持用户当前的地图位置和缩放级别
+        map.setView(currentCenter, currentZoom);
     }
 }
 
@@ -1296,6 +1331,7 @@ function setupCampusSelector() {
             // 更新当前校区
             currentCampus = btn.dataset.campus || "";
             // 重新渲染（使用已加载的数据）
+            // 校区切换时允许调整地图视野（传入 true）
             if (window.currentStations) {
                 // 合并所有站点用于地图显示（包括未抓取的）
         const allStationsForMap = [...(window.currentStations || [])];
@@ -1324,7 +1360,7 @@ function setupCampusSelector() {
                 }
             });
         }
-        renderMap(allStationsForMap);
+        renderMap(allStationsForMap, true); // 校区切换时允许调整视野
                 renderList(window.currentStations);
             }
         });
@@ -1342,6 +1378,7 @@ function setupProviderSelector() {
                 fetchStatus();
             } else {
                 // 如果选择"全部"，使用已加载的数据重新渲染
+                // 切换服务商时保持当前位置（false），因为用户可能已经定位到某个位置
                 if (window.currentStations) {
                     // 合并所有站点用于地图显示（包括未抓取的）
         const allStationsForMap = [...(window.currentStations || [])];
@@ -1370,7 +1407,7 @@ function setupProviderSelector() {
                 }
             });
         }
-        renderMap(allStationsForMap);
+        renderMap(allStationsForMap, false); // 切换服务商时保持当前位置
                     renderList(window.currentStations, window.allStationsDef);
                 }
             }
@@ -1408,6 +1445,173 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
+}
+
+// 显示当前位置在地图上
+function showCurrentLocation() {
+    // 检查浏览器是否支持地理位置 API
+    if (!navigator.geolocation) {
+        alert('您的浏览器不支持地理位置服务');
+        return;
+    }
+
+    // 检查是否在 HTTPS 环境下（localhost 除外）
+    const isSecureContext = window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (!isSecureContext) {
+        alert('地理位置功能需要 HTTPS 环境才能使用');
+        return;
+    }
+
+    // 移除旧的当前位置标记
+    if (currentLocationMarker) {
+        map.removeLayer(currentLocationMarker);
+        currentLocationMarker = null;
+    }
+
+    // 显示加载状态
+    const locationBtn = document.getElementById('location-btn');
+    if (locationBtn) {
+        locationBtn.disabled = true;
+        locationBtn.innerHTML = `
+            <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 11-6.219-8.56"/>
+            </svg>
+            <span class="hidden sm:inline">定位中...</span>
+        `;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const userLat = position.coords.latitude;
+            const userLon = position.coords.longitude;
+            
+            console.log(`当前位置: ${userLat}, ${userLon}`);
+            
+            // 坐标转换：用户位置通常是 WGS84，需要转换为地图使用的坐标系
+            // convertCoord 函数期望输入是 [lng, lat] 格式，但数据源坐标系是 BD09
+            // 我们需要创建一个从 WGS84 转换的函数
+            let markerLat = userLat;
+            let markerLon = userLon;
+            
+            // 如果地图使用的是 GCJ02 或 BD09，需要从 WGS84 转换
+            const targetCoord = MAP_CONFIG.webCoordSystem;
+            if (targetCoord === 'GCJ02') {
+                // WGS84 -> GCJ02
+                if (typeof wgs84ToGcj02 === 'function') {
+                    const converted = wgs84ToGcj02(userLon, userLat);
+                    markerLon = converted[0];
+                    markerLat = converted[1];
+                } else {
+                    console.warn('wgs84ToGcj02 函数不可用，使用原始坐标');
+                }
+            } else if (targetCoord === 'BD09') {
+                // WGS84 -> BD09
+                if (typeof wgs84ToBd09 === 'function') {
+                    const converted = wgs84ToBd09(userLon, userLat);
+                    markerLon = converted[0];
+                    markerLat = converted[1];
+                } else {
+                    console.warn('wgs84ToBd09 函数不可用，使用原始坐标');
+                }
+            }
+            // 如果目标坐标系是 WGS84，不需要转换
+            
+            // 创建当前位置图标（蓝色圆点，带外圈）
+            const locationIconHtml = `
+                <div style="
+                    width: 20px;
+                    height: 20px;
+                    background-color: #3b82f6;
+                    border: 3px solid white;
+                    border-radius: 50%;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    position: relative;
+                ">
+                    <div style="
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        width: 8px;
+                        height: 8px;
+                        background-color: white;
+                        border-radius: 50%;
+                    "></div>
+                </div>
+            `;
+            
+            const locationIcon = L.divIcon({
+                html: locationIconHtml,
+                className: '',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+            
+            // 创建标记
+            currentLocationMarker = L.marker([markerLat, markerLon], {
+                icon: locationIcon,
+                zIndexOffset: 1000 // 确保在充电桩标记之上
+            }).addTo(map);
+            
+            // 添加弹出窗口
+            currentLocationMarker.bindPopup(`
+                <div style="text-align: center; width: fit-content;">
+                    <strong style="font-size: 14px;">📍 当前位置</strong>
+                </div>
+            `).openPopup();
+            
+            // 定位到当前位置（带缩放）
+            map.setView([markerLat, markerLon], 16);
+            
+            // 恢复按钮状态
+            if (locationBtn) {
+                locationBtn.disabled = false;
+                locationBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    <span class="hidden sm:inline">定位</span>
+                `;
+            }
+        },
+        (error) => {
+            let errorMessage = '获取位置失败';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage = '您拒绝了位置权限请求，请在浏览器设置中允许位置访问';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage = '位置信息不可用';
+                    break;
+                case error.TIMEOUT:
+                    errorMessage = '获取位置超时，请重试';
+                    break;
+                default:
+                    errorMessage = error.message || '未知错误';
+                    break;
+            }
+            alert(errorMessage);
+            console.error('获取位置失败:', errorMessage, error);
+            
+            // 恢复按钮状态
+            if (locationBtn) {
+                locationBtn.disabled = false;
+                locationBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    <span class="hidden sm:inline">定位</span>
+                `;
+            }
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0 // 不使用缓存，每次都获取最新位置
+        }
+    );
 }
 
 // 获取用户位置并找到最近的校区
@@ -1584,6 +1788,7 @@ function switchToCampus(campusId) {
     });
     
     // 重新渲染地图和列表
+    // 切换校区时允许调整视野（true），因为用户主动切换了校区
     if (window.currentStations) {
         const allStationsForMap = [...(window.currentStations || [])];
         if (window.allStationsDef && window.allStationsDef.length > 0) {
@@ -1611,7 +1816,7 @@ function switchToCampus(campusId) {
                 }
             });
         }
-        renderMap(allStationsForMap);
+        renderMap(allStationsForMap, true); // 切换校区时允许调整视野
         renderList(window.currentStations, window.allStationsDef);
     }
 }
@@ -1724,6 +1929,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     setInterval(() => {
         updateNightMessage();
     }, 60 * 1000); // 60秒 = 1分钟
+    
+    // 设置定位按钮事件
+    const locationBtn = document.getElementById('location-btn');
+    if (locationBtn) {
+        locationBtn.addEventListener('click', function() {
+            showCurrentLocation();
+        });
+    }
     
     // 设置下载按钮事件
     const downloadBtn = document.getElementById('download-map-btn');

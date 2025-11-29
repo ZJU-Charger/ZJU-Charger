@@ -73,16 +73,16 @@ app.mount("/web", StaticFiles(directory=str(web_dir), html=True), name="web")
 
 ```javascript
 // 修改 API_BASE_URL
-const API_BASE_URL = 'https://your-api-server.com';
+const API_BASE_URL = "https://your-api-server.com";
 ```
 
 #### Nginx 部署
 
 1. 将 `web/` 目录内容复制到 Nginx 网站根目录：
 
-    ```bash
-    cp -r web/* /var/www/html/
-    ```
+   ```bash
+   cp -r web/* /var/www/html/
+   ```
 
 2. 配置 Nginx（可选，如果需要代理 API）：
 
@@ -90,17 +90,17 @@ const API_BASE_URL = 'https://your-api-server.com';
 server {
     listen 80;
     server_name your-domain.com;
-    
+
     root /var/www/html;
     index index.html;
-    
+
     # 代理 API 请求
     location /api/ {
         proxy_pass http://localhost:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
-    
+
     # 静态文件
     location / {
         try_files $uri $uri/ /index.html;
@@ -122,10 +122,10 @@ server {
 
 ```javascript
 // 默认使用相对路径（与后端一起部署时）
-const API_BASE_URL = '';
+const API_BASE_URL = "";
 
 // 或使用绝对路径（独立部署时）
-const API_BASE_URL = 'https://your-api-server.com';
+const API_BASE_URL = "https://your-api-server.com";
 ```
 
 ### 刷新间隔配置
@@ -167,9 +167,9 @@ A: 修改 `script.js` 中的地图初始化代码，可以切换地图源或自�
 
 1. 启动后端服务器：
 
-    ```bash
-    python run_server.py --reload
-    ```
+   ```bash
+   python run_server.py --reload
+   ```
 
 2. 访问 `http://localhost:8000/web/`
 

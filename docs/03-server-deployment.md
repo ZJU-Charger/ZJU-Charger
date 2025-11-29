@@ -129,55 +129,55 @@ TODO: Docker 部署方案
 
 1. 安装 Nginx：
 
-    ```shell
-    sudo apt-get install nginx
-    sudo yum install nginx
-    ```
+   ```shell
+   sudo apt-get install nginx
+   sudo yum install nginx
+   ```
 
 2. 配置 Nginx `/etc/nginx/sites-available/zju-charger`：
 
-    ```shell
-    server {
-        listen 80;
-        server_name your-domain.com;
+   ```shell
+   server {
+       listen 80;
+       server_name your-domain.com;
 
-        # API 代理
-        location /api/ {
-            proxy_pass http://127.0.0.1:8000;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
+       # API 代理
+       location /api/ {
+           proxy_pass http://127.0.0.1:8000;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+       }
 
-        # Web 前端
-        location /web/ {
-            proxy_pass http://127.0.0.1:8000;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-        }
+       # Web 前端
+       location /web/ {
+           proxy_pass http://127.0.0.1:8000;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+       }
 
-        # 静态文件（可选）
-        location /data/ {
-            proxy_pass http://127.0.0.1:8000;
-        }
-    }
-    ```
+       # 静态文件（可选）
+       location /data/ {
+           proxy_pass http://127.0.0.1:8000;
+       }
+   }
+   ```
 
 3. 启用配置：
 
-    ```bash
-    sudo ln -s /etc/nginx/sites-available/zju-charger /etc/nginx/sites-enabled/
-    sudo nginx -t
-    sudo systemctl reload nginx
-    ```
+   ```bash
+   sudo ln -s /etc/nginx/sites-available/zju-charger /etc/nginx/sites-enabled/
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
 
 4. 配置 SSL（可选，使用 Let's Encrypt）：
 
-    ```bash
-    sudo apt-get install certbot python3-certbot-nginx
-    sudo certbot --nginx -d your-domain.com
-    ```
+   ```bash
+   sudo apt-get install certbot python3-certbot-nginx
+   sudo certbot --nginx -d your-domain.com
+   ```
 
 ## 环境变量配置
 
@@ -246,7 +246,7 @@ PROVIDER_NEPTUNE_API_URL=https://api.example.com
    ```bash
    # Ubuntu/Debian
    sudo apt-get install redis-server
-   
+
    # macOS
    brew install redis
    ```
@@ -295,15 +295,15 @@ RATE_LIMIT_STATUS=3/minute
 
 1. **端口被占用**
 
-    ```bash
-    # 检查端口占用
-    lsof -i :8000
-    # 或
-    netstat -tulpn | grep 8000
+   ```bash
+   # 检查端口占用
+   lsof -i :8000
+   # 或
+   netstat -tulpn | grep 8000
 
-    # 修改端口
-    python run_server.py --port 8001
-    ```
+   # 修改端口
+   python run_server.py --port 8001
+   ```
 
 2. **端口开放问题**
 
