@@ -60,7 +60,9 @@ flowchart TD
 - [x] 支持地图下载功能
 - [x] 支持夜间模式（按钮切换深色/浅色模式）
 
-![web](assets/web.png)
+![web-light](assets/web_light.png)
+
+![web-dark](assets/web_dark.png)
 
 ### 后端功能
 
