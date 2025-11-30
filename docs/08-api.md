@@ -1,11 +1,7 @@
 # API 参考指南
 
-本项目的 FastAPI 服务默认监听 `http://<host>:<port>`（开发环境为 `http://127.0.0.1:8000`）。所有接口支持 JSON 响应，并可以通过自动化文档查看：  
-
-- Swagger UI: `http://<host>:<port>/docs`  
-- ReDoc: `http://<host>:<port>/redoc`
-
-> 以下示例均假设服务器运行在本机 `8000` 端口，如需远程访问请替换主机名和端口。
+- [Swagger UI](https://charger.philfan.cn/docs)  
+- [ReDoc](https://charger.philfan.cn/redoc)
 
 ## GET `/api`
 
@@ -89,4 +85,4 @@ curl "http://127.0.0.1:8000/api/status?provider=neptune&devid=8120"
 
 ---
 
-如需了解数据库表结构或历史数据使用方式，请结合 [docs/07-supabase-schema.md](./07-supabase-schema.md)。*** End Patch
+如需了解数据库表结构或历史数据使用方式，请结合 [docs/07-supabase-schema.md](./07-supabase-schema.md)。
