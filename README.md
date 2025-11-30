@@ -1,4 +1,4 @@
-# ZJU Charger
+# 🔋 𝐙𝐉𝐔 𝐂𝐡𝐚𝐫𝐠𝐞𝐫
 
 ![Star Badge](https://img.shields.io/github/stars/Phil-Fan/ZJU-Charger?style=social) ![License Badge](https://img.shields.io/github/license/Phil-Fan/ZJU-Charger) ![Contributors Badge](https://img.shields.io/github/contributors/Phil-Fan/ZJU-Charger) ![Issues Badge](https://img.shields.io/github/issues/Phil-Fan/ZJU-Charger) ![Pull Requests Badge](https://img.shields.io/github/issues-pr/Phil-Fan/ZJU-Charger) ![Last Commit Badge](https://img.shields.io/github/last-commit/Phil-Fan/ZJU-Charger) ![Code Size Badge](https://img.shields.io/github/languages/code-size/Phil-Fan/ZJU-Charger)
 
@@ -24,14 +24,20 @@ ZJU Charger 基于 FastAPI 开发，瞄准**校内充电桩不好找、供应商
 - [x] 前端关注列表功能：关注的站点显示在站点的最上方
 - [x] 可以显示当前位置（需用户授权地理位置权限）
 - [x] 支持服务商筛选功能（前端下拉框）
-- [x] 支持校区筛选功能（玉泉、紫金港）
+- [x] 支持校区筛选功能（玉泉\紫金港\华家池）
+  - 玉泉校区
+      ![campus_1](assets/campus_01.png)
+  - 紫金港校区
+      ![campus_2](assets/campus_02.png)
+  - 华家池校区
+      ![campus_3](assets/campus_03.png)
 - [x] 支持高德地图、OpenStreetMap、腾讯地图地图后端
 - [x] 支持地图下载功能
 - [x] 支持夜间模式（按钮切换深色/浅色模式）
-
-![web-light](assets/web_light.png)
-
-![web-dark](assets/web_dark.png)
+  - 浅色模式
+    ![web-light](assets/web_light.png)
+  - 深色模式
+    ![web-dark](assets/web_dark.png)
 
 ### 后端功能
 
