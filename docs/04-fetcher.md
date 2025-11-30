@@ -102,6 +102,12 @@ class ProviderBase(ABC):
         pass
     ```
 
+### 校区 ID 规范
+
+- `1`: 玉泉校区
+- `2`: 紫金港校区
+- 其他值：其他校区（可根据实际情况定义）
+
 ### 3. 注册服务商
 
 在 `fetcher/provider_manager.py` 中注册新服务商：
@@ -188,12 +194,6 @@ CSV 每行会被转换为如下结构（仅示意）：
 - 历史快照 → `usage` 表（insert）
 
 API 层会从 `latest` + `stations` 表组装 `/api/status` 所需的 JSON，前端无需关心数据库细节。若 `.env` 中将 `SUPABASE_HISTORY_ENABLED=false`，则 fetcher 仍需更新 `latest` 与 `stations`（尤其是 `devids`），但可以跳过历史 `usage` 表的插入。
-
-### 校区 ID 规范
-
-- `1`: 玉泉校区
-- `2`: 紫金港校区
-- 其他值：其他校区（可根据实际情况定义）
 
 ## 测试
 

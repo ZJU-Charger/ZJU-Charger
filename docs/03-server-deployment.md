@@ -137,9 +137,109 @@ sudo systemctl start caddy
 
 caddy 的默认配置文件在 `/etc/caddy/Caddyfile` 下。
 
-### 方式二：使用 Docker（待实现）
+### 方式二：使用 Docker
 
-TODO: Docker 部署方案
+Docker 镜像已经内置在项目根目录下的 `Dockerfile` 中，适合希望快速启动且不想在宿主机安装 Python 环境的场景。
+
+#### 方案 A：单容器运行 API
+
+1. **构建镜像**
+
+   ```bash
+   docker build -t zju-charger:latest .
+   ```
+
+2. **准备环境变量**
+
+   复制一份 `.env`（或命名为 `.env.production`），填入前文所述的环境变量。例如：
+
+   ```shell
+   cp .env .env.production  # 如无现成配置，可根据文档手动创建
+   ```
+
+3. **启动容器**
+
+   ```bash
+   docker run -d \
+     --name zju-charger \
+     -p 8000:8000 \
+     --env-file .env.production \
+     zju-charger:latest
+   ```
+
+   - `-p 8000:8000` 将容器内的 API (`API_PORT`) 暴露到宿主机。
+   - `--env-file` 会把你配置的钉钉/Supabase/API 等变量注入容器。
+   - 需要自定义端口时，可以同时修改 `.env.production` 中的 `API_PORT` 以及映射端口。
+
+4. **查看日志 / 管理容器**
+
+   ```bash
+   docker logs -f zju-charger          # 查看运行日志
+   docker stop zju-charger             # 停止
+   docker start zju-charger            # 重启
+   docker rm -f zju-charger            # 删除容器
+   ```
+
+如需让宿主机挂载静态 `data/` 或日志目录，可在 `docker run` 时加入 `-v /host/path:/app/data` 等参数。
+
+#### 方案 B：`docker-compose` 运行 API + 宿主机 Caddy 反向代理
+
+1. **准备配置文件**
+
+   - 将 `.env` 或 `.env.production` 配置好后供 `app` 服务读取。
+   - `docker-compose.yml` 默认会将容器 `8000` 端口映射到宿主机 `8000`，如需修改可调整 `ports`。
+
+2. **启动服务**
+
+   ```bash
+   docker compose up -d
+   ```
+
+   `app` 服务会使用根目录的 `Dockerfile` 构建 FastAPI 应用并监听 8000 端口。
+
+3. **配置 Caddy（在宿主机或单独容器中运行）**
+
+   使用仓库根目录的 `Caddyfile` 作为模板，核心规则示例：
+
+   ```caddy
+   :80 {
+       encode gzip zstd
+
+       @web path /web/*
+       handle @web {
+           root * /path/to/Charge-in-ZJU/web
+           try_files {path} /index.html
+           file_server
+       }
+
+       handle {
+           reverse_proxy 127.0.0.1:8000
+       }
+   }
+   ```
+
+   - 将 `:80` 改为你的域名（如 `charger.example.com`）即可让 Caddy 自动申请 HTTPS 证书。
+   - 若 Caddy 运行在其它主机或容器里，请把 `reverse_proxy` 指向宿主机暴露出来的 `app` 端口。
+
+4. **管理命令**
+
+   ```bash
+   docker compose logs -f app    # 查看 FastAPI 日志
+   docker compose down           # 停止并删除容器
+   docker compose restart app    # 重启 FastAPI
+   ```
+
+5. **常见问题**
+
+   - **Docker Daemon 未启动**
+
+     如果执行 `docker compose up` 报错：
+
+     ```text
+     unable to get image 'zju-charger:latest': Cannot connect to the Docker daemon at unix:///Users/philfan/.docker/run/docker.sock. Is the docker daemon running?
+     ```
+
+     说明宿主机上的 Docker 服务尚未启动或当前用户没有访问 `docker.sock` 的权限。请先启动 Docker Desktop（或 `sudo systemctl start docker` 等命令），确保 Docker Engine 运行，再次执行 `docker compose up -d`。若问题依旧，请检查该 socket 的权限或将用户加入 `docker` 用户组。
 
 ### 方式三：使用 Nginx 反向代理
 

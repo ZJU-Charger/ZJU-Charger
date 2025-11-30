@@ -59,15 +59,6 @@ flowchart TD
 - [x] 接口限流功能，防止恶意调用
 - [ ] 钉钉机器人交互
 
-### 校区 ID（与 `fetcher/station.py` 保持一致）
-
-| 校区 ID | 名称       | 备注 |
-|---------|------------|------|
-| 1    | 玉泉校区   | 默认前端聚焦校区 |
-| 2    | 紫金港校区 | 地图/筛选使用 |
-
-新增校区时请同时更新 `fetcher/station.py` 的 `CAMPUS_NAME_MAP`、`web/js/config.js` 的 `CAMPUS_CONFIG` 以及 `web/index.html` 的校区按钮。
-
 网页效果：
 
 ![web](assets/web.png)

@@ -1,3 +1,5 @@
+# 如果使用本地启动
+
 charger.philfan.cn {
     root * web
     
@@ -26,6 +28,12 @@ charger.philfan.cn {
         }
     }
     
-    reverse_proxy 127.0.0.1:9898
+    reverse_proxy 127.0.0.1:8000
     tls hw.phil.fan@gmail.com
+}
+
+# 如果使用 Docker
+
+charger.philfan.cn {
+    reverse_proxy localhost:8000
 }

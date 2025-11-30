@@ -1,0 +1,16 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: zju-charger:latest
+    container_name: zju-charger-app
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    # 需要持久化数据或日志时，可取消注释下方示例挂载
+    # volumes:
+    #   - ./data:/app/data
+    #   - ./logs:/app/logs
+    restart: unless-stopped
