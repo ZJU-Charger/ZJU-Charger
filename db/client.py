@@ -20,11 +20,11 @@ def initialize_supabase_config(url: str, key: str):
     该函数必须在首次调用 get_supabase_client() 之前被调用。
     """
     global _supabase_url, _supabase_key
-    
+
     if not url or not key:
         logger.error("Supabase URL 或 Key 为空，配置失败。")
         return
-        
+
     _supabase_url = url
     _supabase_key = key
     logger.info("Supabase 配置参数已设置。")
@@ -57,7 +57,7 @@ def get_supabase_client() -> Optional[Client]:
 
 def reset_supabase_client():
     """重置 Supabase 客户端实例（用于测试或重新配置）
-    
+
     注意：此函数只重置客户端实例，不重置配置（URL 和 Key）。
     如果需要重置配置，请直接调用 initialize_supabase_config() 设置新值。
     """

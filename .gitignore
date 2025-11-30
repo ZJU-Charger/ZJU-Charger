@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+
 *.py[cod]
 *$py.class
 *.so
@@ -15,9 +16,6 @@ ENV/
 *.swp
 *.swo
 
-data/*
-!data/stations.json
-
 # 临时文件
 *.log
 logs/
@@ -27,3 +25,4 @@ logs/
 .DS_Store
 Thumbs.db
 .env*
+.pytest_cache/

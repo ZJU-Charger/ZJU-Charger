@@ -4,71 +4,108 @@
 
 ## 数据库设计
 
-采用两张表设计：
+系统采用“最新快照 + 历史记录”的三张表模型：
 
-- **`stations` 表**：存储站点基础信息（几乎不变）
-- **`usage` 表**：存储使用情况历史快照（每次抓取记录）
+- **`latest` 表**：为每个站点保存一行最新快照，字段与 `usage` 表完全一致。
+- **`stations` 表**：存储站点基础信息（几乎不变），给历史 usage 数据提供外键。
+- **`usage` 表**：存储使用情况历史快照（每次抓取记录）。
+
+> 如果只需要最新状态，可以在 `.env` 中设置 `SUPABASE_HISTORY_ENABLED=false`，此时后台任务只会维护 `latest` 表，`usage` 表可选。
 
 ## 表结构
 
-### 1. `stations` 表（站点基础信息）
+### 1. `latest` 表（最新快照）
 
-存储站点的基本信息，这些信息一般不会频繁变化。
+为每个站点保存一条最新的使用情况数据，字段设计与 `usage` 表保持一致，区别在于：
+
+- `latest` 中 `hash_id` 唯一（`PRIMARY KEY`），只保留最近一次抓取；
+- `usage` 按时间累积全部快照，可用于历史分析。
 
 #### SQL 建表语句
 
 ```sql
-CREATE TABLE IF NOT EXISTS stations (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    provider_id TEXT NOT NULL,
-    provider_name TEXT NOT NULL,
-    campus INTEGER,
-    lat NUMERIC(10, 6),
-    lon NUMERIC(10, 6),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS latest (
+    hash_id TEXT PRIMARY KEY,
+    snapshot_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    free INTEGER NOT NULL DEFAULT 0,
+    used INTEGER NOT NULL DEFAULT 0,
+    total INTEGER NOT NULL DEFAULT 0,
+    error INTEGER NOT NULL DEFAULT 0
 );
 
--- 创建索引
-CREATE INDEX IF NOT EXISTS idx_stations_provider ON stations(provider_id);
-CREATE INDEX IF NOT EXISTS idx_stations_campus ON stations(campus);
+CREATE INDEX IF NOT EXISTS idx_latest_station ON latest(hash_id);
 ```
 
 #### 字段说明
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | TEXT | 站点唯一标识（主键），对应抓取数据中的 `id` 字段 |
+| `hash_id` | TEXT | 站点唯一标识，与 `stations.hash_id`、`usage.hash_id` 一致 |
+| `snapshot_time` | TIMESTAMPTZ | 最近一次抓取完成时间 |
+| `free` | INTEGER | 可用充电桩数量 |
+| `used` | INTEGER | 已用充电桩数量 |
+| `total` | INTEGER | 总充电桩数量 |
+| `error` | INTEGER | 故障充电桩数量 |
+
+### 2. `stations` 表（站点基础信息）
+
+存储站点的基本信息，这些信息一般不会频繁变化。
+
+#### stations 建表语句
+
+```sql
+CREATE TABLE IF NOT EXISTS stations (
+    hash_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    campus_id INTEGER,
+    campus_name TEXT,
+    lat NUMERIC(10, 6),
+    lon NUMERIC(10, 6),
+    device_ids JSONB DEFAULT '[]',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_stations_provider ON stations(provider);
+CREATE INDEX IF NOT EXISTS idx_stations_campus ON stations(campus_id);
+```
+
+#### stations 表字段说明
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `hash_id` | TEXT | 站点唯一标识，`md5(provider:name)` |
 | `name` | TEXT | 站点名称 |
-| `provider_id` | TEXT | 服务商标识（如 "neptune"） |
-| `provider_name` | TEXT | 服务商显示名称（如 "尼普顿"） |
-| `campus` | INTEGER | 校区 ID（如 2143, 1774） |
+| `provider` | TEXT | 服务商标识（如 `neptune`） |
+| `campus_id` | INTEGER | 校区 ID（如 2143, 1774） |
+| `campus_name` | TEXT | 校区名称（可选） |
 | `lat` | NUMERIC(10,6) | 纬度 |
 | `lon` | NUMERIC(10,6) | 经度 |
-| `created_at` | TIMESTAMPTZ | 创建时间（自动设置） |
-| `updated_at` | TIMESTAMPTZ | 更新时间（自动设置） |
+| `device_ids` | JSONB | 与站点关联的 `device_ids` 列表（用于 provider+devid 查询） |
+| `created_at` | TIMESTAMPTZ | 创建时间 |
+| `updated_at` | TIMESTAMPTZ | 更新时间 |
 
-### 2. `usage` 表（使用情况历史快照）
+### 3. `usage` 表（使用情况历史快照）
 
 存储每次抓取时的站点使用情况数据，用于历史分析和趋势统计。
 
-#### usage 建表语句
+#### usage 表建表语句
 
 ```sql
 CREATE TABLE IF NOT EXISTS usage (
     id BIGSERIAL PRIMARY KEY,
-    station_id TEXT NOT NULL,
+    hash_id TEXT NOT NULL,
     snapshot_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     free INTEGER NOT NULL DEFAULT 0,
     used INTEGER NOT NULL DEFAULT 0,
     total INTEGER NOT NULL DEFAULT 0,
     error INTEGER NOT NULL DEFAULT 0,
-    CONSTRAINT fk_usage_station FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE CASCADE
+    CONSTRAINT fk_usage_station FOREIGN KEY (hash_id) REFERENCES stations(hash_id) ON DELETE CASCADE
 );
 
 -- 创建索引（非常重要，用于查询性能）
-CREATE INDEX IF NOT EXISTS idx_usage_station_time ON usage(station_id, snapshot_time DESC);
+CREATE INDEX IF NOT EXISTS idx_usage_station_time ON usage(hash_id, snapshot_time DESC);
 CREATE INDEX IF NOT EXISTS idx_usage_time ON usage(snapshot_time DESC);
 ```
 
@@ -77,7 +114,7 @@ CREATE INDEX IF NOT EXISTS idx_usage_time ON usage(snapshot_time DESC);
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `id` | BIGSERIAL | 主键，自增 |
-| `station_id` | TEXT | 站点唯一标识（外键 → `stations.id`） |
+| `hash_id` | TEXT | 站点唯一标识（外键 → `stations.hash_id`） |
 | `snapshot_time` | TIMESTAMPTZ | 抓取时间（UTC+8） |
 | `free` | INTEGER | 可用充电桩数量 |
 | `used` | INTEGER | 已使用充电桩数量 |
@@ -101,17 +138,24 @@ CREATE INDEX IF NOT EXISTS idx_usage_time ON usage(snapshot_time DESC);
 
 ## 外键约束
 
-`usage` 表的 `station_id` 字段通过外键关联到 `stations` 表的 `id` 字段：
+`usage` 表的 `hash_id` 字段通过外键关联到 `stations` 表的 `hash_id` 字段：
 
 - `ON DELETE CASCADE`: 当站点被删除时，相关的使用情况记录也会被自动删除
 
 ## 使用示例
 
+### 读取最新缓存
+
+```sql
+SELECT *
+FROM latest;
+```
+
 ### 查询某个站点的最新使用情况
 
 ```sql
 SELECT * FROM usage
-WHERE station_id = '29e30f45'
+WHERE hash_id = '29e30f45'
 ORDER BY snapshot_time DESC
 LIMIT 1;
 ```
@@ -120,7 +164,7 @@ LIMIT 1;
 
 ```sql
 SELECT * FROM usage
-WHERE station_id = '29e30f45'
+WHERE hash_id = '29e30f45'
   AND snapshot_time >= NOW() - INTERVAL '24 hours'
 ORDER BY snapshot_time DESC;
 ```
@@ -128,21 +172,21 @@ ORDER BY snapshot_time DESC;
 ### 查询所有站点的最新使用情况
 
 ```sql
-SELECT DISTINCT ON (station_id) *
+SELECT DISTINCT ON (hash_id) *
 FROM usage
-ORDER BY station_id, snapshot_time DESC;
+ORDER BY hash_id, snapshot_time DESC;
 ```
 
 ### 统计某个站点的平均使用率
 
 ```sql
 SELECT 
-    station_id,
+    hash_id,
     AVG(used::numeric / NULLIF(total, 0)) * 100 AS avg_usage_rate
 FROM usage
-WHERE station_id = '29e30f45'
+WHERE hash_id = '29e30f45'
   AND snapshot_time >= NOW() - INTERVAL '7 days'
-GROUP BY station_id;
+GROUP BY hash_id;
 ```
 
 ## Row Level Security (RLS) 配置
@@ -191,7 +235,19 @@ CREATE POLICY "Allow insert usage" ON usage
     WITH CHECK (true);
 ```
 
-**注意**：使用 `anon` key + RLS 策略的方案安全性较低，建议生产环境使用 Service Role Key。
+### 允许其他客户端读取 latest 表（可选）
+
+本项目的后台服务使用 **Service Role Key** 调用 Supabase，因此无需额外配置 RLS 就能读写 `latest` 缓存。如果你计划对外暴露 `anon` key 供其他客户端读取 `latest` 表，可手动启用 RLS 并添加只读策略：
+
+```sql
+ALTER TABLE latest ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow select latest" ON latest
+    FOR SELECT
+    USING (true);
+```
+
+> 根据实际需求调整 `USING` 条件，例如利用 `auth.jwt()` 限制来源域名。生产环境不要将 Service Role Key 暴露给前端。
 
 ## 注意事项
 
@@ -203,6 +259,6 @@ CREATE POLICY "Allow insert usage" ON usage
 
 4. **性能优化**：批量插入时使用 `batch_insert_usage()` 函数，比单条插入效率更高。
 
-5. **错误处理**：数据库操作失败不应影响主流程（`latest.json` 的保存）。
+5. **错误处理**：写入 `usage` 失败不应影响主流程（`latest` 表的保存）。
 
 6. **安全性**：**强烈建议使用 Service Role Key**，它专为服务端应用设计，会绕过 RLS 策略，适合后台任务使用。

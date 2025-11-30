@@ -17,7 +17,7 @@ flowchart TD
 
     B["本地网页<br/>index.html<br/>(AJAX)"]
 
-    C["FastAPI API 服务<br/>/api/status 实时查询<br/>支持多服务商筛选<br/>后台定时抓取"]
+    C["FastAPI API 服务"]
 
     D["钉钉机器人<br/>全部"]
 
@@ -26,8 +26,7 @@ flowchart TD
     F1["NeptuneProvider<br/>尼普顿服务商"]
     F2["其他服务商<br/>可扩展..."]
 
-    G["数据存储<br/>latest.json<br/>缓存"]
-    H["Supabase 数据库<br/>历史数据记录<br/>可选"]
+    G["Supabase 数据库"]
 
     %% 连接关系
     A --> |查询| C
@@ -36,14 +35,13 @@ flowchart TD
 
     D --> |webhook| C
 
-    C --> |使用数据| E
+    C --> |读取数据| G
     E --> |管理| F1
     E --> |管理| F2
     F1 --> |实时抓取| E
     F2 --> |实时抓取| E
     
-    C --> |保存缓存| G
-    C --> |记录历史| H
+    G <--> |写入缓存| E
 ```
 
 所有查询来源（网页、钉钉、GitHub Action）都调用统一 API 和 ProviderManager，逻辑完全不重复。系统采用多服务商架构，支持同时显示和筛选多个服务商的充电桩数据。
@@ -56,6 +54,7 @@ flowchart TD
 - [x] 网页地图可视化（Leaflet）；支持高德地图、OpenStreetMap；支持服务商筛选功能（前端下拉框）；支持校区筛选功能（玉泉、紫金港）
 - [x] 前端关注列表功能
 - [x] 后台定时抓取任务，自动更新缓存
+- [x] Supabase latest 行级缓存（字段与 usage 表一致），由 API 汇总后返回前端
 - [x] Supabase 数据库支持，记录历史使用情况数据（可选）
 - [x] 接口限流功能，防止恶意调用
 - [ ] 钉钉机器人交互
@@ -72,10 +71,10 @@ flowchart TD
 
 ## 最小抓取示例
 
-可以使用 `server/minium_get_status.py` 进行简单的状态查询：
+可以使用 `fetcher/minium_get_status.py` 进行简单的状态查询：
 
 ```shell
-python server/minium_get_status.py --address 50359163
+python fetcher/minium_get_status.py --address 50359163
 ```
 
 或者直接使用 API 接口：
@@ -89,18 +88,20 @@ curl http://localhost:8000/api/status?id=29e30f45
 ```text
 project/
 ├── fetcher/
-│   ├── provider_base.py      # 服务商抽象基类
 │   ├── provider_manager.py   # 服务商管理器
 │   ├── providers/
+│   │   ├── provider_base.py  # 服务商抽象基类
 │   │   └── neptune.py        # 尼普顿服务商实现
-│   └── fetch.py              # 统一抓取逻辑（异步，已废弃）
+│   └── station.py            # 共享 Station 模型（CSV 解析 + hash 生成）
+├── db/
+│   ├── client.py             # Supabase 客户端初始化
+│   ├── station_repo.py       # stations 表 CRUD
+│   ├── usage_repo.py         # latest/usage 表读写
+│   ├── pipeline.py           # record_usage_data 数据管道
+│   └── __init__.py           # 统一暴露 initialize/get/batch 接口
 ├── server/
-│   ├── api.py                # FastAPI 主服务
-│   ├── storage.py            # 数据存储管理（latest.json）
+│   ├── api.py                # FastAPI 主服务（直接调用 db/ 仓库）
 │   ├── config.py             # 环境变量配置（支持服务商配置）
-│   ├── station_loader.py     # 站点信息加载器
-│   ├── db.py                 # Supabase 数据库操作
-│   ├── supabase_client.py    # Supabase 客户端管理
 │   └── logging_config.py     # 日志配置
 ├── ding/
 │   ├── bot.py                # 钉钉机器人封装
@@ -110,9 +111,6 @@ project/
 │   ├── index.html            # 地图 + 列表页面（支持服务商筛选）
 │   ├── script.js             # 前端逻辑（支持多服务商）
 │   └── style.css             # 样式文件
-├── data/                     # 数据目录
-│   ├── latest.json           # 最新状态缓存（统一格式，包含 provider_id）
-│   └── stations.json          # 站点信息（包含 campus 字段）
 ├── script/                   # iOS 快捷指令
 │   ├── README.md             # 快捷指令使用说明
 │   └── *.shortcut            # 快捷指令文件
@@ -132,6 +130,7 @@ project/
 - [钉钉机器人文档](./docs/05-dingbot.md) - 钉钉机器人配置和使用
 - [Script 快捷指令文档](./docs/06-script-shortcuts.md) - iOS 快捷指令使用指南
 - [Supabase 数据库架构](./docs/07-supabase-schema.md) - Supabase 数据库表结构和使用说明
+- [API 参考](./docs/08-api.md) - 后端 REST API 描述与示例
 
 ## 许可证
 

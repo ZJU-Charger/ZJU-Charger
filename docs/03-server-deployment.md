@@ -211,8 +211,9 @@ TODO: Docker 部署方案
 - `RATE_LIMIT_ENABLED`: 是否启用接口限流（默认：true）
 - `RATE_LIMIT_DEFAULT`: 默认限流规则（默认："60/hour"，即每小时 60 次）
 - `RATE_LIMIT_STATUS`: `/api/status` 端点限流规则（默认："3/minute"，即每分钟 3 次）
-- `SUPABASE_URL`: Supabase 项目 URL（可选，用于记录使用情况历史数据）
-- `SUPABASE_KEY`: Supabase Service Role Key（可选，**必须使用 Service Role Key，而非 anon key**）
+- `SUPABASE_URL`: Supabase 项目 URL（启用后可写入 latest 缓存表与历史 usage 表）
+- `SUPABASE_KEY`: Supabase Service Role Key（写 latest/usage 表时 **必须** 使用 Service Role Key，而非 anon key）
+- `SUPABASE_HISTORY_ENABLED`: 是否写入历史 `usage` 表（默认 `true`；设为 `false` 时只维护 `latest` 快照）
 
 ### 后台抓取任务
 
@@ -222,8 +223,8 @@ TODO: Docker 部署方案
 
 - 启动时立即执行一次抓取，初始化缓存
 - 之后按 `BACKEND_FETCH_INTERVAL` 间隔定时抓取
-- 抓取的数据会保存到 `data/latest.json` 缓存文件
-- 如果配置了 Supabase，数据会同时写入数据库
+- 抓取的数据会写入 Supabase `latest` 表（字段与 `usage` 表一致，保存每个站点的最新一条记录）
+- 同步向历史 `usage` 表插入快照，便于趋势分析
 
 **夜间暂停时段**：
 
@@ -233,8 +234,19 @@ TODO: Docker 部署方案
 
 **数据流程**：
 
-1. 后台任务定时抓取 → 保存到 `latest.json` → 写入 Supabase（如果配置）
-2. API 请求优先读取缓存 → 缓存不存在时实时抓取
+1. **启动阶段**：读取 `data/stations.csv` 并覆盖写入 `stations` 表（名称、坐标、`device_ids` 等），确保元数据与仓库一致。该步骤通过 `db/station_repo.batch_upsert_stations()` 完成。
+2. 后台任务定时抓取 → 调用 `db/pipeline.record_usage_data()` 写入 Supabase `latest` 表，并在 `SUPABASE_HISTORY_ENABLED=true` 时追加 `usage` 历史 → 同步更新 `stations` 表基础信息
+3. API 请求优先通过 `db/usage_repo.load_latest()` 和 `db/station_repo.fetch_station_metadata()` 组装 JSON，缓存不可用时再实时抓取
+
+### `/api/status` 查询方式
+
+`/api/status` 提供三种访问模式，便于不同客户端定位站点：
+
+1. **Hash ID 查询**：`GET /api/status?hash_id=<hash_id>`，直接返回该唯一站点。
+2. **Provider + Devid**：`GET /api/status?provider=<provider>&devid=<devid>`，当只知道设备号时可定位站点（必须同时提供 `provider`）。
+3. **按服务商过滤**：`GET /api/status?provider=<provider>`，返回该服务商下的全部站点。
+
+所有模式都会返回统一的站点结构（包含 `devids` 列表），并在命中缓存时享受低延迟响应。
 
 ### 服务商配置
 
@@ -410,7 +422,7 @@ sudo iptables-save
 
 - **安全性**：Service Role Key 具有完整数据库访问权限，请妥善保管，不要提交到代码仓库
 - **数据量**：每次抓取都会插入记录，`usage` 表会快速增长，建议定期清理旧数据
-- **错误处理**：数据库操作失败不会影响主流程（`latest.json` 的保存）
+- **错误处理**：历史 usage 表写入失败不会影响主流程（`latest` 缓存的保存）
 - **RLS 策略**：使用 Service Role Key 会绕过 RLS 策略，适合服务端应用
 
 更多详细信息请参考 `docs/07-supabase-schema.md`。

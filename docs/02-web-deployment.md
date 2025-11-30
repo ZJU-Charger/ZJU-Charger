@@ -7,7 +7,7 @@
 - **基础**：原生 HTML + ES6 模块化脚本，TailwindCSS CDN 负责样式；无需打包工具即可直接部署。
 - **地图**：Leaflet 1.9.4，配合 `leaflet.ChineseTmsProviders` 切换国内常用底图，`leaflet-easyprint` 输出地图截图。
 - **坐标系**：`leaflet-coord-transform.js` 内置 BD09/GCJ02/WGS84 之间的互转工具，确保数据与底图一致。
-- **数据交互**：浏览器 `fetch` 调用 `/api/status`、`/api/providers`、`/api/config`，在接口异常时回退到 `/data/latest.json` 与 `/data/stations.json`。
+- **数据交互**：浏览器通过 `fetch` 调用 `/api/status`、`/api/providers`、`/api/config`，并使用 `/api/stations` 补全地图/站点定义信息。
 - **状态与存储**：`localStorage` 记录关注列表与主题偏好，`Set` 结构在前端完成去重和快速查询。
 
 ## 目录与模块职责
@@ -22,7 +22,7 @@ web/
 │   ├── ui.js                # 主题/夜间提示/交互入口，绑定事件与定时刷新
 │   ├── leaflet-coord-transform.js
 │   └── leaflet.ChineseTmsProviders.js
-├── data/                    # 后端同步的静态缓存（latest.json、stations.json）
+├── data/                    # 启动或迁移时的原始站点缓存（由服务器同步至数据库）
 └── 40x/50x.html             # 兜底静态页面
 ```
 
@@ -32,7 +32,7 @@ web/
 
 1. **配置拉取**：`loadConfig()` 调用 `/api/config`，读取 `fetch_interval`，用于后续的自动刷新周期；失败时采用默认 60 秒。
 2. **服务商清单**：`loadProviders()` 访问 `/api/providers`，更新右上角下拉框，顺便缓存 `availableProviders` 供图层命名。
-3. **站点状态**：`fetchStatus()` 先尝试 `/api/status`（可追加 `?provider=`），错误或 429 时回退到 `/data/latest.json`。为了在地图上展示完整图层，还会同时请求 `/data/stations.json`，将尚未抓取到实时数据的桩位补齐并打上 `isFetched: false` 标记。
+3. **站点状态**：`fetchStatus()` 直接调用 `/api/status`（可追加 `?provider=`）。后台服务会从 Supabase `latest` 表读取缓存（`latest` 与 `usage` 表字段一致，API 层负责组装 JSON）；前端无需感知具体存储位置。同时请求 `/api/stations`，将尚未抓取到实时数据的桩位补齐并打上 `isFetched: false` 标记。
 4. **关注列表状态**：`fetchWatchlistStatus()` 读取本地 watchlist，按服务商拼接 `/api/status?provider=x&devid=...` 批量查询，必要时再全量拉取 `/api/status` 过滤出基于名称的收藏。
 5. **限流提示**：任意接口返回 429 时触发 `showRateLimitAlert()`，以浮层提醒用户不要频繁刷新。
 
@@ -54,7 +54,7 @@ web/
 
 1. **初始化**：`initMap()` 根据当前校区（默认玉泉，取 `CAMPUS_CONFIG[2143]`）确定中心点，调用 `convertCoord()` 将 BD09 数据转到地图所需坐标，再创建 Leaflet 实例。
 2. **底图与坐标系联动**：`MAP_LAYERS_CONFIG` 为 OSM/高德/腾讯预定义底图及其坐标系。`updateLayerControl()` 将这些底图，以及后续生成的“服务商图层组”一起放进 `L.control.layers`。当用户切换底图时触发 `baselayerchange`，同步更新 `MAP_CONFIG.useMap` 和 `MAP_CONFIG.webCoordSystem`，随后强制重新绘制所有桩位标记以保证坐标转换正确。
-3. **标记绘制**：`renderMap()` 先将所有旧的服务商图层移除，再把站点按 `provider_id` 分组。每个分组对应一个 `L.layerGroup`，并使用 `L.divIcon` 自定义图标颜色/形状：默认绿色表示有空闲，橙色/红色分别表示紧张和无空闲，灰色则表示 `isFetched=false` 的“未抓取”桩位。`providerShapes` 允许为不同服务商定义圆/三角/方形等差异化外观。
+3. **标记绘制**：`renderMap()` 先将所有旧的服务商图层移除，再把站点按 `provider` 分组。每个分组对应一个 `L.layerGroup`，并使用 `L.divIcon` 自定义图标颜色/形状：默认绿色表示有空闲，橙色/红色分别表示紧张和无空闲，灰色则表示 `isFetched=false` 的“未抓取”桩位。`providerShapes` 允许为不同服务商定义圆/三角/方形等差异化外观。
 4. **交互能力**：
    - `layerControl` 允许快速显示/隐藏某个服务商的桩。
    - `manualPrint()` 基于 `L.easyPrint` 导出当前视口，结合 `#download-map-btn` 提供“下载地图”功能。
@@ -63,7 +63,7 @@ web/
 
 ## 列表与 UI（`data.js` + `ui.js`）
 
-- **渲染逻辑**：`renderList()` 将实时数据与 `stations.json` 做并集后，再按校区、服务商过滤。排序优先级是“是否关注 → 是否实时数据 → 可用数”。每一项都包含彩色进度条（绿色=空闲、灰色=占用、红色=故障），并展示校区/服务商徽章。
+- **渲染逻辑**：`renderList()` 将实时数据与 `/api/stations` 提供的定义做并集后，再按校区、服务商过滤。排序优先级是“是否关注 → 是否实时数据 → 可用数”。每一项都包含彩色进度条（绿色=空闲、灰色=占用、红色=故障），并展示校区/服务商徽章。
 - **收藏**：点击星形图标会调用 `toggleWatchlist()`。函数优先使用 devid+provider 组合保证唯一性，如果接口数据缺失则退化为站点名称。
 - **夜间提示**：`isNightTime()` 判断 00:10–05:50 区间，`updateNightMessage()` 控制提示条显隐。
 - **主题切换**：`initTheme()` 在加载时读取本地主题，`toggleTheme()` 切换 `document.documentElement` 的 `dark` class，SVG 图标跟随变化。

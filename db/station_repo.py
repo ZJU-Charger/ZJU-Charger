@@ -13,12 +13,14 @@ lon,double precision,经度,stations[*].lon,
 device_ids,jsonb or text[],关联的设备 ID 列表,stations[*].device_ids,
 updated_at,timestamptz,本条元数据最近一次更新时间,stations[*].updated_at,NOT NULL
 """
+
 # db/station_repo.py
 
 import logging
 from typing import List, Dict, Any, Optional
+
 # 移除对 Station 类的依赖
-from .client import get_supabase_client 
+from .client import get_supabase_client
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +31,14 @@ logger = logging.getLogger(__name__)
 # 理想情况下，我们应该将 Station 转换为 Dict 再传入，但为了兼容性，暂时保持原签名，
 # 但我们将删除所有 Station 相关的内部转换函数。
 
-def upsert_station(station: Any) -> bool: # station 类型改为 Any 或 Dict 更好，但保留原逻辑。
+
+def upsert_station(
+    station: Any,
+) -> bool:  # station 类型改为 Any 或 Dict 更好，但保留原逻辑。
     """
     插入或更新单个站点基础信息 (stations 表)。
-    
-    NOTE: 
+
+    NOTE:
     为了降低耦合，理想情况是此函数接受 Dict 而非 Station 对象，
     但为保留数据写入的原结构，暂保持原样。
     """
@@ -57,7 +62,7 @@ def upsert_station(station: Any) -> bool: # station 类型改为 Any 或 Dict �
             "lat": getattr(station, "lat", None),
             "lon": getattr(station, "lon", None),
             "device_ids": getattr(station, "device_ids", []),
-            "updated_at": getattr(station, "updated_at", None), 
+            "updated_at": getattr(station, "updated_at", None),
         }
 
         # 执行 upsert 操作
@@ -69,7 +74,7 @@ def upsert_station(station: Any) -> bool: # station 类型改为 Any 或 Dict �
         return False
 
 
-def batch_upsert_stations(stations: List[Any]) -> bool: # 类型改为 List[Any]
+def batch_upsert_stations(stations: List[Any]) -> bool:  # 类型改为 List[Any]
     """批量插入或更新站点基础信息 (stations 表)"""
     client = get_supabase_client()
     if client is None:
@@ -85,7 +90,9 @@ def batch_upsert_stations(stations: List[Any]) -> bool: # 类型改为 List[Any]
         for station in stations:
             station_id = getattr(station, "hash_id", None)
             if not station_id:
-                logger.warning(f"跳过缺少 hash_id 的站点: {getattr(station, 'name', 'unknown')}")
+                logger.warning(
+                    f"跳过缺少 hash_id 的站点: {getattr(station, 'name', 'unknown')}"
+                )
                 continue
 
             station_data = {
@@ -125,15 +132,15 @@ def fetch_station_metadata(
     client = get_supabase_client()
     if client is None:
         return {}
-    
+
     try:
         query = client.table("stations").select(
             "hash_id,name,provider,campus_id,campus_name,lat,lon,device_ids,updated_at"
         )
-        
+
         if station_ids:
             query = query.in_("hash_id", station_ids)
-            
+
         if provider:
             query = query.eq("provider", provider)
 
@@ -151,21 +158,22 @@ def fetch_station_metadata(
 
 # --- Fetcher 专用接口：返回标准字典列表 (低耦合) ---
 
+
 def fetch_all_stations_data(provider: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     【Fetcher 专用接口】
     从数据库读取所有站点基础信息，并返回标准字典列表 (List[Dict])。
-    
+
     Args:
         provider: 可选，筛选指定 provider 的站点。
     """
     try:
         # 调用底层接口获取 Dict[hash_id, Dict] 结构
-        metadata_map = fetch_station_metadata(provider=provider) 
+        metadata_map = fetch_station_metadata(provider=provider)
         if not metadata_map:
             logger.warning(f"未找到 provider='{provider}' 的站点信息。")
             return []
-        
+
         # 转换为 List[Dict] 结构并返回
         return list(metadata_map.values())
 

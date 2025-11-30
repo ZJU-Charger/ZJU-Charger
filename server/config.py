@@ -43,6 +43,9 @@ class Config:
     SUPABASE_KEY = os.getenv(
         "SUPABASE_KEY", ""
     )  # 应使用 Service Role Key，而非 anon key
+    SUPABASE_HISTORY_ENABLED = (
+        os.getenv("SUPABASE_HISTORY_ENABLED", "true").lower() == "true"
+    )
 
     # 服务商配置
     # 格式：PROVIDER_<PROVIDER_ID>_<CONFIG_KEY>=<value>
