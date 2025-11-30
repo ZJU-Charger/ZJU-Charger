@@ -4,47 +4,16 @@
 
 [![Markdown Quality Check](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/markdown-check.yml/badge.svg)](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/markdown-check.yml) [![Python Lint Check](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/python-check.yml/badge.svg)](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/python-check.yml) [![pages-build-deployment](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/pages/pages-build-deployment)
 
-> 基于 FastAPI 的浙江大学充电桩状态查询系统，支持多个充电桩服务商（当前支持尼普顿），实现充电桩状态查询、前端关注列表、钉钉机器人交互等功能。
+你是否也曾骑着没电的小龟，慢吞吞地骑到充电桩，却发现一个空余的桩位都没有？😫
+你是否也曾被充电桩服务商离谱的 UI 界面与复杂的查询接口所困扰？😠
 
-免责声明：本项目仅用于个人学习交流，不得用于商业用途。使用本项目所造成的任何后果，由使用者自行承担。
+ZJU Charger 基于 FastAPI 开发，瞄准**校内充电桩不好找、供应商入口不一、使用状态查询不便**三大痛点，为你提供一个简洁、易用、扩展性强的充电桩查询方案。
 
-## 系统架构
+目前支持网站在线分校区、分服务商查询（普查）、iOS 快捷指令查询特定站点状态（精准查）、钉钉 Webhook 机器人等功能。
 
-```mermaid
-flowchart TD
+访问 [https://charger.philfan.cn/](https://charger.philfan.cn/web/) 查看效果。
 
-    A["iOS 快捷指令<br/>1. 关注点快速查询"]
-
-    B["本地网页<br/>index.html<br/>(AJAX)"]
-
-    C["FastAPI API 服务"]
-
-    D["钉钉机器人<br/>全部"]
-
-    E["ProviderManager<br/>服务商管理器"]
-
-    F1["NeptuneProvider<br/>尼普顿服务商"]
-    F2["其他服务商<br/>可扩展..."]
-
-    G["Supabase 数据库"]
-
-    %% 连接关系
-    A --> |查询| C
-
-    B <--> |AJAX| C
-
-    D --> |webhook| C
-
-    C --> |读取数据| G
-    E --> |管理| F1
-    E --> |管理| F2
-    F1 --> |实时抓取| E
-    F2 --> |实时抓取| E
-    
-    G <--> |写入缓存| E
-```
-
-所有查询来源（网页、钉钉、GitHub Action）都调用统一 API 和 ProviderManager，逻辑完全不重复。系统采用多服务商架构，支持同时显示和筛选多个服务商的充电桩数据。
+> **免责声明**：本项目仅用于学习交流，不得用于商业盈利与非法用途。使用本项目所造成的任何后果，由使用者自行承担，作者不承担任何责任。请遵守相关法律法规。
 
 ## 功能特性
 
@@ -84,6 +53,19 @@ flowchart TD
 
 ![dingbot](assets/dingbot.png)
 
+## 文档
+
+详细的文档请查看 [docs](./docs/) 目录：
+
+- [快速开始](./docs/01-quick-start.md) - 快速上手指南
+- [Web 介绍与部署](./docs/02-web-deployment.md) - 前端功能说明和部署指南
+- [Server 端部署](./docs/03-server-deployment.md) - 后端服务器部署指南
+- [Fetcher 文档](./docs/04-fetcher.md) - 如何添加新服务商、更新站点信息
+- [钉钉机器人文档](./docs/05-dingbot.md) - 钉钉机器人配置和使用
+- [Script 快捷指令文档](./docs/06-script-shortcuts.md) - iOS 快捷指令使用指南
+- [Supabase 数据库架构](./docs/07-supabase-schema.md) - Supabase 数据库表结构和使用说明
+- [API 参考](./docs/08-api.md) - 后端 REST API 描述与示例
+
 ## 最小抓取示例
 
 可以使用 `fetcher/minium_get_status.py` 进行简单的状态查询：
@@ -97,6 +79,46 @@ python fetcher/minium_get_status.py --address 50359163
 ```shell
 curl http://localhost:8000/api/status?id=29e30f45
 ```
+
+## 系统架构
+
+在开发层面，目标实现高内聚、低耦合、易于扩展。
+
+```mermaid
+flowchart TD
+
+    A["iOS 快捷指令<br/>1. 关注点快速查询"]
+
+    B["本地网页<br/>index.html<br/>(AJAX)"]
+
+    C["FastAPI API 服务"]
+
+    D["钉钉机器人<br/>全部"]
+
+    E["ProviderManager<br/>服务商管理器"]
+
+    F1["NeptuneProvider<br/>尼普顿服务商"]
+    F2["其他服务商<br/>可扩展..."]
+
+    G["Supabase 数据库"]
+
+    %% 连接关系
+    A --> |查询| C
+
+    B <--> |AJAX| C
+
+    D --> |webhook| C
+
+    C --> |读取数据| G
+    E --> |管理| F1
+    E --> |管理| F2
+    F1 --> |实时抓取| E
+    F2 --> |实时抓取| E
+    
+    G <--> |写入缓存| E
+```
+
+所有查询来源（网页、钉钉、GitHub Action）都调用统一 API 和 ProviderManager，逻辑完全不重复。系统采用多服务商架构，支持同时显示和筛选多个服务商的充电桩数据。
 
 ## 项目结构
 
@@ -133,19 +155,6 @@ project/
 ├── serve.sh                  # 快速启动脚本（自动安装依赖）
 └── requirements.txt          # 依赖库
 ```
-
-## 文档
-
-详细的文档请查看 [docs](./docs/) 目录：
-
-- [快速开始](./docs/01-quick-start.md) - 快速上手指南
-- [Web 介绍与部署](./docs/02-web-deployment.md) - 前端功能说明和部署指南
-- [Server 端部署](./docs/03-server-deployment.md) - 后端服务器部署指南
-- [Fetcher 文档](./docs/04-fetcher.md) - 如何添加新服务商、更新站点信息
-- [钉钉机器人文档](./docs/05-dingbot.md) - 钉钉机器人配置和使用
-- [Script 快捷指令文档](./docs/06-script-shortcuts.md) - iOS 快捷指令使用指南
-- [Supabase 数据库架构](./docs/07-supabase-schema.md) - Supabase 数据库表结构和使用说明
-- [API 参考](./docs/08-api.md) - 后端 REST API 描述与示例
 
 ## 许可证
 
