@@ -1,4 +1,4 @@
-# 🔋 𝐙𝐉𝐔 𝐂𝐡𝐚𝐫𝐠𝐞𝐫
+# <img src="assets/logo.png" alt="logo" width="30"> 𝐙𝐉𝐔 𝐂𝐡𝐚𝐫𝐠𝐞𝐫
 
 ![Star Badge](https://img.shields.io/github/stars/Phil-Fan/ZJU-Charger?style=social) ![License Badge](https://img.shields.io/github/license/Phil-Fan/ZJU-Charger) ![Contributors Badge](https://img.shields.io/github/contributors/Phil-Fan/ZJU-Charger) ![Issues Badge](https://img.shields.io/github/issues/Phil-Fan/ZJU-Charger) ![Pull Requests Badge](https://img.shields.io/github/issues-pr/Phil-Fan/ZJU-Charger) ![Last Commit Badge](https://img.shields.io/github/last-commit/Phil-Fan/ZJU-Charger) ![Code Size Badge](https://img.shields.io/github/languages/code-size/Phil-Fan/ZJU-Charger)
 
@@ -19,14 +19,15 @@ ZJU Charger 基于 FastAPI 开发，瞄准**校内充电桩不好找、供应商
 
 ### 前端功能
 
-- [x] Next.js - App Router + TypeScript + shadcn/ui（Supabase 主题）
+Next.js 框架开发：App Router + TypeScript + shadcn/ui
+
 - [x] Apache ECharts + `echarts-extension-amap` 提供高德地图服务。
 - [x] 绿/橙/红三色编码空闲、紧张、故障状态。
 - [x] 校区/服务商筛选。
 - [x] 双击站点打开导航卡片，支持高德地图和系统地图。
 - [x] 支持实时定位，开启后持续追踪浏览器坐标、绘制用户标记。
-- [x] 关注列表通过 localStorage 实现，状态统一由 Next 客户端组件驱动。
-- [x] 暗黑主题，同时地图也支持暗黑模式。
+- [x] 关注列表通过 localStorage 实现。
+- [x] 界面与地图同时支持暗黑模式。
 - [x] 前端定时自动刷新。
 - [x] 夜间提示。
 
@@ -223,8 +224,11 @@ project/
 
 ### 前端
 
+- 使用 [Next.js](https://nextjs.org/) 实现前端框架。
+- 使用 高德地图 Web JS SDK 实现地图渲染。
 - 使用 [Apache ECharts](https://echarts.apache.org/) + [echarts-extension-amap](https://github.com/plainheart/echarts-extension-amap) 完成地图渲染。
-- 使用 [Tailwind CSS](https://tailwindcss.com/) 负责 UI 样式，配合 React 组件化实现响应式页面。
+- 使用 [shadcn/ui](https://ui.shadcn.com/) 实现组件库，使用 [tweakcn](https://tweakcn.com/editor/theme) 生成 Supabase 主题。
+- 使用 [Biome](https://biomejs.dev/) 实现代码检查与格式化。
 - 坐标转换由自定义 `geo` 工具实现（WGS84 ↔ GCJ02 ↔ BD09）。
 
 ### 其他
