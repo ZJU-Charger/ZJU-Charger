@@ -406,7 +406,6 @@ def _build_cached_response(
     }
 
 
-
 @app.get("/api")
 @apply_rate_limit(Config.RATE_LIMIT_DEFAULT)
 async def api_info(request: Request):
