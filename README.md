@@ -17,20 +17,25 @@ ZJU Charger 基于 FastAPI 开发，瞄准**校内充电桩不好找、供应商
 
 ## 功能特性
 
--### 前端功能
+### 前端功能
 
-- [x] Next.js App Router + TypeScript + shadcn/ui（Supabase 主题）重建 SPA，Header/地图/列表/关注等模块拆分为可复用组件，全部托管在 `frontend/`。
-- [x] Apache ECharts + `echarts-extension-amap` 继续渲染高德底图，绿/橙/红三色编码空闲、紧张、故障状态，并与校区摘要保持联动。
-- [x] 校区/服务商筛选、暗黑主题、自动刷新、夜间提示与关注列表通过 hooks + localStorage 实现，状态统一由 Next 客户端组件驱动。
-- [x] 新增实时定位 watch 控件：开启后持续追踪浏览器坐标、绘制用户标记，可手动停止并在权限被拒绝或浏览器不支持时弹出 toast。
-- [x] 双击标记打开导航卡片、列表进度条、校区摘要等交互保持不变，同时提供 shadcn toast/alert、404/503/504 Next.js 页面等一致体验。
+- [x] Next.js - App Router + TypeScript + shadcn/ui（Supabase 主题）
+- [x] Apache ECharts + `echarts-extension-amap` 提供高德地图服务。
+- [x] 绿/橙/红三色编码空闲、紧张、故障状态。
+- [x] 校区/服务商筛选。
+- [x] 双击站点打开导航卡片，支持高德地图和系统地图。
+- [x] 支持实时定位，开启后持续追踪浏览器坐标、绘制用户标记。
+- [x] 关注列表通过 localStorage 实现，状态统一由 Next 客户端组件驱动。
+- [x] 暗黑主题，同时地图也支持暗黑模式。
+- [x] 前端定时自动刷新。
+- [x] 夜间提示。
 
 ### 后端功能
 
-- [x] 后台定时抓取任务，自动更新缓存
-- [x] Supabase 数据库支持，记录历史使用情况数据（可选）
 - [x] FastAPI 统一 API 接口，使用 slowapi 实现接口限流功能
 - [x] 多服务商架构支持，可同时异步抓取多个服务商的充电桩数据（目前支持了尼普顿服务商）
+- [x] 后台定时抓取任务，自动更新缓存
+- [x] Supabase 数据库支持，记录历史使用情况数据（可选）
 
 ### 快捷指令
 
@@ -96,6 +101,7 @@ ZJU Charger 基于 FastAPI 开发，瞄准**校内充电桩不好找、供应商
 
   执行 `pnpm build` 时 Next.js 会将其编译进静态产物。
 - 如果未设置 `NEXT_PUBLIC_API_BASE`，客户端会直接调用相对路径 `/api/*`，适用于前后端同域部署；只在需要跨域访问（如本地连远程 API）时赋值。
+- `NEXT_PUBLIC_REFRESH_INTERVAL`（可选）：前端自动刷新间隔（秒）。设置后会覆盖后端 `/api/config` 的 `fetch_interval`，方便按部署环境自定义。
 
 ## 最小抓取示例
 
