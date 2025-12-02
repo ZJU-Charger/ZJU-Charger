@@ -1,37 +1,33 @@
 # Web 前端实现
 
-本文档聚焦 React 版本 Web 前端的代码组织与运行机制，帮助你快速理解如何使用 Vite/ECharts 构建地图页面、消费后端 API，并提供流畅的交互体验。
+本文档聚焦 Next.js 版本 Web 前端的代码组织与运行机制，帮助你快速理解如何使用 App Router + shadcn/ui + ECharts 构建地图页面、消费后端 API，并提供流畅的交互体验。
 
 ## 技术栈概览
 
-- **基础**：React 18 + TypeScript + Vite 构建 SPA，Tailwind CSS 负责样式。
+- **基础**：Next.js 16（App Router）+ TypeScript + pnpm 构建 SPA，Tailwind CSS + shadcn/ui（Supabase 主题）负责样式与交互组件。
 - **地图**：Apache ECharts 5 + `echarts-extension-amap`，统一使用高德地图底图，具备 geolocation 与截图能力。
-- **状态管理**：React Hooks + 定制 `useStations/useWatchlist` 等 hooks，将数据获取、轮询、主题、关注列表等逻辑拆分成可复用模块。
+- **状态管理**：React Hooks + 定制 `useStations/useWatchlist/useRealtimeLocation` 等 hooks，将数据获取、轮询、主题、关注、定位 watch 等逻辑拆分成可复用模块。
 - **数据交互**：仍通过 `/api/status`、`/api/providers`、`/api/config`、`/api/stations` 获取实时/元数据，服务端实现保持不变。
-- **部署模式**：前端使用静态托管（Pages/Caddy 等），FastAPI 仅提供 API；通过 `VITE_API_BASE` 指定 API 根地址即可支持跨域请求。
-- **存储**：`localStorage` 保留主题和关注列表；`VITE_AMAP_KEY` 在 `.env` 中配置后由 Vite 注入。
+- **部署模式**：前端可运行在 Node（`pnpm start`）、Vercel、Caddy 等环境，FastAPI 仅提供 API；通过 `NEXT_PUBLIC_API_BASE` 指定 API 根地址即可支持跨域请求。
+- **存储**：`localStorage` 保留主题、关注列表、定位偏好；`NEXT_PUBLIC_AMAP_KEY` 在 `.env.local` 中配置后由 Next.js 注入。
 
 ## 目录与模块职责
 
 ```text
-web/
-├── index.html               # Vite 入口，注入 gtag、#root 容器
-├── package.json             # npm scripts（dev/build/preview/lint）
-├── tailwind.config.cjs      # Tailwind 扫描范围 & dark mode
-├── postcss.config.cjs
-├── tsconfig*.json           # TypeScript & path alias 配置（@ -> src）
+frontend/
+├── package.json            # pnpm scripts（dev/build/lint/format）
+├── tailwind.config.ts      # Tailwind + shadcn 配置
+├── postcss.config.mjs
+├── tsconfig.json           # TypeScript & path alias 配置（@ -> src）
 └── src/
-    ├── main.tsx            # React 入口
-    ├── App.tsx             # 页面骨架，组织 Header/Map/List/Footer
-    ├── components/         # HeaderBar、MapView、StationList、SummaryGrid 等 UI 组件
-    ├── hooks/              # useStations/useProviders/useTheme/useWatchlist 等状态逻辑
-    ├── services/api.ts     # fetch helpers、数据归一化与合并
-    ├── config/             # 校区/常量/Storage key
-    ├── lib/                # 坐标转换、时间格式化、AMap loader
-    └── types/              # API/站点类型声明
+    ├── app/               # Next App Router：layout/page/not-found/503/504
+    ├── components/        # HeaderBar、MapView、StationList、SummaryGrid、ErrorPage 等
+    ├── hooks/             # useStations/useProviders/useThemeMode/useWatchlist/useRealtimeLocation
+    ├── lib/               # 校区/常量/Storage key、API 客户端、时间&坐标、AMap loader
+    └── types/             # API/站点类型声明
 ```
 
-Vite 会读取 `index.html` 并自动注入 `src/main.tsx`，因此部署时只需要 `npm run build` 生成的 `dist/` 静态文件即可。
+生产阶段执行 `pnpm build && pnpm start` 即可预览 `.next` 输出，或交由 Vercel/Caddy/Nginx 托管。
 
 ## 数据流与 API
 
@@ -49,17 +45,17 @@ Vite 会读取 `index.html` 并自动注入 `src/main.tsx`，因此部署时只�
 
 ## 地图渲染流程（`MapView`）
 
-1. **AMap 加载**：组件初始化时调用 `loadAmap(VITE_AMAP_KEY)` 动态注入高德 JS SDK，随后 `echarts.init()` 创建实例。
+1. **AMap 加载**：组件初始化时调用 `loadAmap(NEXT_PUBLIC_AMAP_KEY)` 动态注入高德 JS SDK，随后 `echarts.init()` 创建实例。
 2. **ECharts 配置**：`amap` 选项指定视图模式、中心、缩放与暗色样式；`series` 使用 `scatter` + `coordinateSystem: 'amap'` 渲染标记，颜色按照站点可用性（绿=空闲、橙=紧张、红=故障）。
 3. **坐标转换**：`normalizeStation()` 将 BD09 坐标转换为 GCJ02，确保与高德底图一致；缺失坐标的站点会被过滤，不影响列表展示。
 4. **交互能力**：
    - Tooltip 展示站点名称、校区、服务商、实时数量，并附带“高德/系统地图”导航链接。
-   - 双击任意站点标记会弹出导航卡片，可一键打开高德或系统地图；右下角按钮仍提供“定位”（浏览器 geolocation → GCJ02 → `setCenter`）。
+   - 双击任意站点标记会弹出导航卡片，可一键打开高德或系统地图；右下角按钮切换实时定位（浏览器 `watchPosition` → GCJ02 → `setCenter`），并允许一键停止。
    - 校区切换会更新 AMap `center/zoom`，地图与列表保持同步。
 
 ## 列表与 UI（React 组件）
 
-- **StationList**：从 `useStations()` 返回的 `campusStations` 中渲染卡片，排序策略保持“关注优先 → 实时数据 → 空闲数量”。进度条、校区/服务商标签和“未抓取”提示与旧版一致。
+- **StationList**：从 `useStations()` 返回的 `campusStations` 中渲染卡片，排序策略保持“关注优先 → 实时数据 → 空闲数量”。卡片使用 shadcn Button/Card 组合构成，右上角为独立关注按钮，支持键盘访问，进度条、校区/服务商标签和“未抓取”提示与旧版一致。
 - **Watchlist**：`useWatchlist()` 注入 `isWatched/toggleWatch`，按钮样式改为星形字符（★）并实时同步 `localStorage`。
 - **NightNotice**：独立组件，通过 `isNightTime()` 决定是否展示夜间提示，不再依赖 DOM 操作。
 - **HeaderBar**：封装校区按钮、服务商下拉、更新时间、手动刷新与主题切换按钮。
@@ -73,7 +69,7 @@ Vite 会读取 `index.html` 并自动注入 `src/main.tsx`，因此部署时只�
 
 ## 位置识别与校区自动切换
 
-- `MapView` 的“定位”按钮调用 `navigator.geolocation`，并通过 `wgs84ToGcj02()` 校正后设置高德地图中心；定位标记会在 10 秒后自动移除。
+- `MapView` 的“实时定位”按钮调用 `useRealtimeLocation()`（内部封装了 `navigator.geolocation.watchPosition`），并通过 `wgs84ToGcj02()` 校正后持续更新用户标记，可随时停止或在权限被拒绝时提示。
 - 校区切换由 React 状态驱动，`MapView` 和 `StationList` 同时响应，无需手动触发 `fitBounds`。
 
 ## 扩展指引
@@ -83,10 +79,24 @@ Vite 会读取 `index.html` 并自动注入 `src/main.tsx`，因此部署时只�
 - **附加筛选项**：在 `HeaderBar` 添加新的控件，并将状态下传给 `useStations()` 的参数即可。
 - **排序/标签**：修改 `StationList` 内的排序函数或卡片标签；React 组件结构使其更易维护。
 
-React + Vite 仍然输出纯静态文件，部署方式与旧版一致，但模块拆分让新需求可以在各自文件中实现，避免脚本互相耦合。
+Next.js + shadcn 仍保持组件化拆分，部署方式（Node/Vercel/自托管）灵活，新需求可以在各自文件中实现，避免脚本互相耦合。
 
 ## 部署提示
 
-- 构建前在 `.env` 中配置 `VITE_AMAP_KEY`（高德 Web JS Key），否则地图无法初始化。
-- 若前端与 FastAPI 不同源，设置 `VITE_API_BASE=https://your-api-domain`，前端会以该地址作为 `/api/*` 请求前缀；FastAPI 只需处理 REST API，不再托管静态页面。
-- `npm run dev` 用于本地调试；`npm run build && npm run preview` 可验证构建输出，随后将 `dist/` 上传到任意静态托管（Pages、OSS、Caddy 等）。
+- 环境变量：
+  - 本地 `frontend/.env.local`
+
+    ```ini
+    NEXT_PUBLIC_AMAP_KEY=dev-gaode-key
+    NEXT_PUBLIC_API_BASE=http://localhost:8000
+    ```
+
+  - 生产（`.env.production` 或部署平台）
+
+    ```ini
+    NEXT_PUBLIC_AMAP_KEY=prod-gaode-key
+    NEXT_PUBLIC_API_BASE=https://charger.philfan.cn
+    ```
+
+  - 若前后端同域部署，可省略 `NEXT_PUBLIC_API_BASE`，客户端会直接请求 `/api/*`。
+- `pnpm dev` 用于本地调试；`pnpm build && pnpm start` 可验证生产输出，随后按需部署（Vercel、自建 Node/Caddy 等）。

@@ -11,7 +11,7 @@ ZJU Charger 基于 FastAPI 开发，瞄准**校内充电桩不好找、供应商
 
 目前支持网站在线分校区、分服务商查询（普查）、iOS 快捷指令查询特定站点状态（精准查）、钉钉 Webhook 机器人等功能。
 
-访问 [https://charger.philfan.cn/](https://charger.philfan.cn/web/) 查看效果。
+访问 [https://charger.philfan.cn/](https://charger.philfan.cn/) 查看效果。
 
 > **免责声明**：本项目仅用于学习交流，不得用于商业盈利与非法用途。使用本项目所造成的任何后果，由使用者自行承担，作者不承担任何责任。请遵守相关法律法规。
 
@@ -19,15 +19,11 @@ ZJU Charger 基于 FastAPI 开发，瞄准**校内充电桩不好找、供应商
 
 -### 前端功能
 
-- [x] React + Vite + Tailwind 构建 SPA，组件化 Header/地图/列表/关注控件。
-- [x] Apache ECharts + `echarts-extension-amap` 渲染单一高德底图，标记按可用性自动着色（绿=空闲、橙=紧张、红=无空闲）。
-- [x] 校区/服务商筛选、夜间模式、站点关注列表、本地存储偏好与自动刷新。
-- [x] 地图支持定位 + 站点导航（提示/双击打开高德或系统地图链接），站点列表保留进度条、关注排序、夜间提示等交互。
-- [x] 校区摘要概览：在地图顶部即时看到各校区空闲桩数量。
-  - 浅色模式
-    ![web-light](assets/web_light.png)
-  - 深色模式
-    ![web-dark](assets/web_dark.png)
+- [x] Next.js App Router + TypeScript + shadcn/ui（Supabase 主题）重建 SPA，Header/地图/列表/关注等模块拆分为可复用组件，全部托管在 `frontend/`。
+- [x] Apache ECharts + `echarts-extension-amap` 继续渲染高德底图，绿/橙/红三色编码空闲、紧张、故障状态，并与校区摘要保持联动。
+- [x] 校区/服务商筛选、暗黑主题、自动刷新、夜间提示与关注列表通过 hooks + localStorage 实现，状态统一由 Next 客户端组件驱动。
+- [x] 新增实时定位 watch 控件：开启后持续追踪浏览器坐标、绘制用户标记，可手动停止并在权限被拒绝或浏览器不支持时弹出 toast。
+- [x] 双击标记打开导航卡片、列表进度条、校区摘要等交互保持不变，同时提供 shadcn toast/alert、404/503/504 Next.js 页面等一致体验。
 
 ### 后端功能
 
@@ -67,16 +63,39 @@ ZJU Charger 基于 FastAPI 开发，瞄准**校内充电桩不好找、供应商
 1. 安装依赖并准备环境变量：
 
    ```bash
-   cd web
-   npm install
-   cp .env.example .env  # 设置 VITE_AMAP_KEY、可选的 VITE_API_BASE 等
+   cd frontend
+   pnpm install
+   cp .env.local.example .env.local  # （如不存在可自行创建）
+   # 写入 NEXT_PUBLIC_AMAP_KEY=你的高德 JS SDK Key
+   # 可选 NEXT_PUBLIC_API_BASE=https://your-api-domain 指向 FastAPI
    ```
 
-2. 本地调试：`npm run dev`，Vite 会在 `http://localhost:5173` 提供热更新，API 默认指向同源 FastAPI（或通过 `VITE_API_BASE` 指向远端 API）。
+2. 本地调试：`pnpm dev`（默认端口 3000），Next.js 会以 App Router 形式渲染。需要实时 API 时可在本地同时运行 FastAPI 或设置 `NEXT_PUBLIC_API_BASE` 指向远端。
 
-3. 生成静态内容：`npm run build`（可选 `npm run preview` 验证）。`dist/` 交给任意静态托管（如 GitHub Pages、Cloudflare Pages、Caddy/Nginx 等）；FastAPI 只暴露 `/api/*`，不再负责前端文件。
+3. 生产构建：`pnpm build && pnpm start` 验证输出；若使用静态托管，可运行 `pnpm export` 或将 `.next` 交由自建 Node 服务，FastAPI 依旧只提供 `/api/*`。
 
-4. 前后端分离部署时，务必在构建前设置 `VITE_API_BASE=https://your-api-domain`（例如 `https://charger.philfan.cn`），使浏览器向正确的 FastAPI 实例发起请求。
+4. 本仓库的 shadcn 组件已按照 Supabase 主题初始化，如需追加组件可运行 `pnpm dlx shadcn@latest add <component>`（若要重新拉取 Supabase 主题可执行 `pnpm dlx shadcn@latest add https://tweakcn.com/r/themes/supabase.json`，需确保网络可访问该源）。
+
+**环境变量注入高德 Key 与 API 域名**
+
+- Next.js 会自动加载 `.env*` 文件，凡是以 `NEXT_PUBLIC_` 前缀命名的变量会被编译到浏览器端，因此必须使用 `NEXT_PUBLIC_AMAP_KEY` 和 `NEXT_PUBLIC_API_BASE`。
+- 本地开发建议创建 `frontend/.env.local`：
+
+  ```ini
+  NEXT_PUBLIC_AMAP_KEY=dev-gaode-key
+  NEXT_PUBLIC_API_BASE=http://localhost:8000
+  ```
+
+  运行 `pnpm dev` 时会注入这些值，前端请求 `http://localhost:8000/api/*`，地图加载本地 Key。
+- 远程部署（Docker、Caddy、Vercel 等）只需在环境中设置同名变量，例如 `.env.production` 或部署平台的环境变量面板：
+
+  ```ini
+  NEXT_PUBLIC_AMAP_KEY=prod-gaode-key
+  NEXT_PUBLIC_API_BASE=https://charger.philfan.cn
+  ```
+
+  执行 `pnpm build` 时 Next.js 会将其编译进静态产物。
+- 如果未设置 `NEXT_PUBLIC_API_BASE`，客户端会直接调用相对路径 `/api/*`，适用于前后端同域部署；只在需要跨域访问（如本地连远程 API）时赋值。
 
 ## 最小抓取示例
 
@@ -101,7 +120,7 @@ flowchart TD
 
     A["iOS 快捷指令<br/>1. 关注点快速查询"]
 
-    B["React Web SPA<br/>Vite bundle"]
+    B["Next.js Web App<br/>App Router"]
 
     C["FastAPI API 服务"]
 
@@ -156,10 +175,11 @@ project/
 │   ├── bot.py                # 钉钉机器人封装
 │   ├── webhook.py            # 钉钉 webhook 路由
 │   └── commands.py           # 命令解析和执行
-├── web/                      # React + Vite 前端
-│   ├── package.json          # npm scripts、依赖
-│   ├── index.html            # Vite 入口
-│   └── src/                  # App.tsx、组件、hooks、服务、样式
+├── frontend/                 # Next.js + shadcn 前端
+│   ├── package.json          # pnpm scripts、依赖、biome 配置
+│   ├── src/app/              # Next App Router 页面、layout、错误页
+│   ├── src/components/       # shadcn ui + 业务组件（Header/Map/List 等）
+│   └── src/lib|hooks|types   # 校区配置、API 客户端、状态 hooks、坐标工具
 ├── script/                   # iOS 快捷指令
 │   ├── README.md             # 快捷指令使用说明
 │   └── *.shortcut            # 快捷指令文件

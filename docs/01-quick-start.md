@@ -6,34 +6,55 @@
 
 ### 访问方式
 
-1. **在线访问**：部署后的 React SPA（如 `https://charger.philfan.cn/web/`）。
-2. **本地开发**：在 `web/` 目录运行构建工具，即可通过 `http://localhost:5173` 预览前端；后端只需暴露 `/api/*` 接口（可运行 FastAPI 或任意兼容 API 服务）。
+1. **在线访问**：部署后的 Next.js 前端（`https://charger.philfan.cn/`）。
+2. **本地开发**：进入 `frontend/` 目录运行 Next.js，即可通过 `http://localhost:3000` 预览；后端只需暴露 `/api/*` 接口（本地 FastAPI 或远端 API 均可，通过 `NEXT_PUBLIC_API_BASE` 指定）。
 
 ### 本地开发步骤
 
 ```bash
-cd web
-npm install
-cp .env.example .env   # 写入 VITE_AMAP_KEY（高德地图 JS SDK Key）
-npm run dev            # 启动 Vite 开发服务器
+cd frontend
+pnpm install
+cp .env.local.example .env.local  # 若示例文件不存在，可直接创建 .env.local
+echo "NEXT_PUBLIC_AMAP_KEY=你的高德JSKey" >> .env.local
+pnpm dev                          # 启动 Next.js 开发服务器
 ```
 
-构建部署版本：
+构建与部署：
 
 ```bash
-npm run build          # 输出 dist/
-npm run preview        # 本地预览 dist/ 内容
+pnpm build        # 生成 .next 输出
+pnpm start        # 以 Node 方式预览生产包
+# 或结合你使用的托管环境（Vercel、Caddy、Docker 等）
 ```
 
-构建后将 `dist/` 部署到任意静态托管（Pages、Cloudflare、Caddy 等），FastAPI 或其他 API 服务仅负责 `/api/*`。保持 `.env` 内的 `VITE_AMAP_KEY` 与可选 `VITE_API_BASE`，确保前端能访问正确的高德与 API。
+Next.js App Router 版本同样通过 `.env*` 注入配置：
+
+- 本地开发 => `frontend/.env.local`
+
+  ```ini
+  NEXT_PUBLIC_AMAP_KEY=dev-gaode-key
+  NEXT_PUBLIC_API_BASE=http://localhost:8000
+  ```
+
+  缺少 `NEXT_PUBLIC_API_BASE` 时会默认使用相对路径 `/api/*`，方便你用 Caddy 或 Next 代理后端。
+- 远程部署 => `.env.production` 或部署平台环境变量
+
+  ```ini
+  NEXT_PUBLIC_AMAP_KEY=prod-gaode-key
+  NEXT_PUBLIC_API_BASE=https://charger.philfan.cn
+  ```
+
+  构建 (`pnpm build`) 阶段 Next.js 会把这些值打包进浏览器脚本。
+
+> 只需记住：凡是要给浏览器用的变量必须带 `NEXT_PUBLIC_` 前缀；如果某个环境无须跨域访问，可不设置 `NEXT_PUBLIC_API_BASE`。
 
 ### 主要功能
 
-- **React 组件化界面**：Header、筛选器、站点列表和地图均为独立组件，逻辑更清晰。
-- **AMap + Apache ECharts**：使用 `echarts-extension-amap` 渲染单一高德底图，不再需要在 OSM/腾讯之间手动切换。
-- **站点列表与关注**：支持校区、服务商筛选，关注（收藏）状态与主题偏好存储在 `localStorage`，多标签页自动同步。
-- **自动刷新**：按照 `/api/config` 返回的 `fetch_interval` 周期刷新（默认 60 秒）。
-- **夜间提醒与摘要**：00:10–05:50 自动显示夜间提示，并在界面顶部展示各校区空闲数摘要。
+- **Next.js + shadcn/ui**：使用 App Router、TypeScript 与 shadcn Supabase 主题构建 UI，所有组件位于 `frontend/src/components`。
+- **AMap + Apache ECharts**：依旧通过 `echarts-extension-amap` 渲染高德底图，标记颜色与旧版保持一致。
+- **站点列表与关注**：校区、服务商筛选、关注状态、主题偏好全部通过 hooks 与 `localStorage` 管理，多标签页实时同步。
+- **自动刷新**：读取 `/api/config` 的 `fetch_interval` 自动轮询（默认 60 秒），可手动点击 Header 的“刷新”按钮。
+- **实时定位与夜间提醒**：定位按钮现在使用 `watchPosition` 持续追踪并绘制用户位置（可手动停止），夜间提示依旧在 00:10–05:50 之间显示，顶部也保留校区空闲摘要。
 
 ### 使用技巧
 
