@@ -1,4 +1,4 @@
-# <img src="assets/logo.png" alt="logo" width="30"> 𝐙𝐉𝐔 𝐂𝐡𝐚𝐫𝐠𝐞𝐫
+# <img src="assets/logo_white.png" alt="logo" width="30"> 𝐙𝐉𝐔 𝐂𝐡𝐚𝐫𝐠𝐞𝐫
 
 ![Star Badge](https://img.shields.io/github/stars/Phil-Fan/ZJU-Charger?style=social) ![License Badge](https://img.shields.io/github/license/Phil-Fan/ZJU-Charger) ![Contributors Badge](https://img.shields.io/github/contributors/Phil-Fan/ZJU-Charger) ![Issues Badge](https://img.shields.io/github/issues/Phil-Fan/ZJU-Charger) ![Pull Requests Badge](https://img.shields.io/github/issues-pr/Phil-Fan/ZJU-Charger) ![Last Commit Badge](https://img.shields.io/github/last-commit/Phil-Fan/ZJU-Charger) ![Code Size Badge](https://img.shields.io/github/languages/code-size/Phil-Fan/ZJU-Charger)
 
@@ -193,8 +193,9 @@ project/
 - 使用 [minima](https://github.com/jekyll/minima) 主题生成项目文档。
 - 使用 [huacnlee/autocorrect](https://github.com/huacnlee/autocorrect/), [DavidAnson/markdownlint-cli2-action](https://github.com/DavidAnson/markdownlint-cli2-action) 与 [gaurav-nelson/github-action-markdown-link-check](https://github.com/gaurav-nelson/github-action-markdown-link-check) 对 Markdown 文档进行自动化检查。
 - 使用 [black](https://github.com/psf/black) 与 [lgeiger/black-action](https://github.com/lgeiger/black-action) 对 Python 代码进行自动化格式检查。
+- 使用 [jitter.video](https://jitter.video/templates) 实现 GIF 动画。
 - 使用 [Star History](https://star-history.com/) 实现 star 历史统计。
-- 使用 [Google analytics](https://analytics.google.com/) 实现网站访问统计。
+- 使用 [Google analytics](https://analytics.google.com/) 和 [Clarity](https://clarity.microsoft.com/) 实现网站访问统计与用户理解。
 - 使用 [Aliyun ECS](https://www.aliyun.com/product/ecs) 实现服务器部署，也使用了 [Vercel](https://vercel.com/) 与 [Cloudflare Pages](https://pages.cloudflare.com/) 实现静态网站部署。
 
 感谢所有贡献者！
