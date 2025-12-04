@@ -117,12 +117,10 @@ def aggregate_results(
     Returns:
         按 devdescript 聚合后的列表。
     """
-    aggregated_data = defaultdict(
-        lambda: {"devids": [], "available": 0, "used": 0, "total": 0}
-    )
+    aggregated_data = defaultdict(lambda: {"devids": [], "available": 0, "used": 0, "total": 0})
 
     # 第一次遍历：聚合 ID 和端口信息
-    for devid, devdescript, available, used, total in results:
+    for devid, devdescript, _available, _used, _total in results:
         group = aggregated_data[devdescript]
         group["devids"].append(devid)
         # 这里仅聚合 ID，端口信息我们不进行累加，以第一次出现的为准，但为了简化，我们只输出 ID
@@ -167,9 +165,7 @@ def write_to_csv(
             writer.writeheader()  # 写入表头
             writer.writerows(aggregated_results)  # 写入数据行
 
-        print(
-            f"\n🎉 成功将 {len(aggregated_results)} 组设备信息写入文件: **{output_filename}**"
-        )
+        print(f"\n🎉 成功将 {len(aggregated_results)} 组设备信息写入文件: **{output_filename}**")
     except Exception as e:
         print(f"\n❌ 写入 CSV 文件失败: {e}")
 

@@ -58,9 +58,7 @@ class Station:
 
     # hash_id 和 usage 具有默认值，也放在后面
     # hash_id 可以在 __post_init__ 中计算，这里给个初始空值或使用 init=False
-    hash_id: str = field(
-        init=False, default=""
-    )  # 标记 init=False 优化，使其不出现在 __init__ 中
+    hash_id: str = field(init=False, default="")  # 标记 init=False 优化，使其不出现在 __init__ 中
     usage: StationUsage = field(default_factory=StationUsage)
 
     def compute_hash_id(self) -> str:
@@ -94,9 +92,7 @@ class Station:
                 device_ids = json.loads(device_raw)
             except json.JSONDecodeError:
                 # 解析失败，退化为分号分隔
-                device_ids = [
-                    item.strip() for item in device_raw.split(";") if item.strip()
-                ]
+                device_ids = [item.strip() for item in device_raw.split(";") if item.strip()]
         else:
             device_ids = []
 

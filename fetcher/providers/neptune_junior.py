@@ -33,8 +33,7 @@ class NeptuneJuniorProvider(ProviderBase):
             return self.token
 
         url = (
-            f"https://gateway.hzxwwl.com/api/auth/wx/mp?"
-            f"openid={self.openid}&unionid={self.unionid}"
+            f"https://gateway.hzxwwl.com/api/auth/wx/mp?openid={self.openid}&unionid={self.unionid}"
         )
 
         async with session.get(url) as response:
@@ -48,16 +47,11 @@ class NeptuneJuniorProvider(ProviderBase):
         self, session: aiohttp.ClientSession
     ) -> Optional[List[Dict[str, Any]]]:
         """TODO: 获取站点列表"""
-        url = (
-            "https://gateway.hzxwwl.com/api/charging/pile/"
-            "listCircleChargingArea?lng=120.139557&lat=30.275593&distanceLength=3&limit=50"
-        )
         return None
 
     async def fetch_device_status(
         self, device_id: str, session: aiohttp.ClientSession
     ) -> Tuple[Optional[Dict[str, Any]], Optional[Exception]]:
-
         try:
             await self.ensure_token(session)
 
@@ -91,11 +85,7 @@ class NeptuneJuniorProvider(ProviderBase):
     async def fetch_station_status(
         self, station: Station, session: aiohttp.ClientSession
     ) -> Tuple[Optional[Dict[str, Any]], Optional[Exception]]:
-
-        tasks = [
-            self.fetch_device_status(device_id, session)
-            for device_id in station.device_ids
-        ]
+        tasks = [self.fetch_device_status(device_id, session) for device_id in station.device_ids]
         results = await asyncio.gather(*tasks)
 
         total = free = used = error = booking = 0
@@ -117,16 +107,11 @@ class NeptuneJuniorProvider(ProviderBase):
             "booking": booking,
         }, None
 
-    async def fetch_status(
-        self, session: aiohttp.ClientSession
-    ) -> Optional[List[Dict[str, Any]]]:
-
+    async def fetch_status(self, session: aiohttp.ClientSession) -> Optional[List[Dict[str, Any]]]:
         if not self.station_list:
             return []
 
-        tasks = [
-            self.fetch_station_status(station, session) for station in self.station_list
-        ]
+        tasks = [self.fetch_station_status(station, session) for station in self.station_list]
         results = await asyncio.gather(*tasks)
 
         final_list = []

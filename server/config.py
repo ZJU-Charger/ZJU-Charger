@@ -36,12 +36,8 @@ class Config:
     # 注意：建议使用 Service Role Key（服务端密钥），它会绕过 RLS 策略
     # 在 Supabase Dashboard → Settings → API 中可以找到 Service Role Key
     SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-    SUPABASE_KEY = os.getenv(
-        "SUPABASE_KEY", ""
-    )  # 应使用 Service Role Key，而非 anon key
-    SUPABASE_HISTORY_ENABLED = (
-        os.getenv("SUPABASE_HISTORY_ENABLED", "true").lower() == "true"
-    )
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")  # 应使用 Service Role Key，而非 anon key
+    SUPABASE_HISTORY_ENABLED = os.getenv("SUPABASE_HISTORY_ENABLED", "true").lower() == "true"
 
     # 服务商配置
     # 格式：PROVIDER_<PROVIDER_ID>_<CONFIG_KEY>=<value>

@@ -7,6 +7,7 @@
     python -m server.run_server --host 0.0.0.0 --port 8000
     python -m server.run_server --log-file logs/server.log  # 保存日志到文件
 """
+
 import argparse
 import logging
 import uvicorn
@@ -17,9 +18,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="启动 ZJU Charger API 服务器")
     parser.add_argument("--host", default=Config.API_HOST, help="服务器地址")
     parser.add_argument("--port", type=int, default=Config.API_PORT, help="服务器端口")
-    parser.add_argument(
-        "--reload", action="store_true", help="启用自动重载（开发模式）"
-    )
+    parser.add_argument("--reload", action="store_true", help="启用自动重载（开发模式）")
     parser.add_argument("--log-file", help="日志文件路径（可选）")
     parser.add_argument(
         "--log-level",

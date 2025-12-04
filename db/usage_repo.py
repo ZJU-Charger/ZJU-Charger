@@ -78,11 +78,7 @@ def insert(data: Dict[str, Any], sheet_name: str) -> bool:
     try:
         if table_name == LATEST_TABLE_NAME:
             # 针对 latest 表使用 upsert (单条)
-            result = (
-                client.table(table_name)
-                .upsert([record], on_conflict="hash_id")
-                .execute()
-            )
+            result = client.table(table_name).upsert([record], on_conflict="hash_id").execute()
         else:
             # 针对 usage 表使用 insert (单条)
             result = client.table(table_name).insert([record]).execute()
@@ -153,11 +149,7 @@ def batch_insert(data: Dict[str, Any], sheet_name: str) -> bool:
     try:
         # 针对 latest 表使用 upsert，针对 usage 表使用 insert
         if table_name == LATEST_TABLE_NAME:
-            result = (
-                client.table(table_name)
-                .upsert(usage_records, on_conflict="hash_id")
-                .execute()
-            )
+            result = client.table(table_name).upsert(usage_records, on_conflict="hash_id").execute()
             action = "更新/插入"
         else:
             result = client.table(table_name).insert(usage_records).execute()
@@ -196,9 +188,7 @@ def load_latest() -> Optional[Dict[str, Any]]:
             logger.warning("latest 表暂无缓存数据。")
             return None
 
-        timestamps = [
-            row.get("snapshot_time") for row in rows if row.get("snapshot_time")
-        ]
+        timestamps = [row.get("snapshot_time") for row in rows if row.get("snapshot_time")]
         latest_timestamp = max(timestamps) if timestamps else None
         return {"updated_at": latest_timestamp, "rows": rows}
 

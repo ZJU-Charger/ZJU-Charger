@@ -127,11 +127,7 @@ def _normalize_device_ids(value: Any) -> List[str]:
             try:
                 parsed = json.loads(stripped)
                 if isinstance(parsed, (list, tuple)):
-                    return [
-                        str(item)
-                        for item in parsed
-                        if item is not None and str(item).strip()
-                    ]
+                    return [str(item) for item in parsed if item is not None and str(item).strip()]
             except json.JSONDecodeError:
                 pass
         return [str(stripped)]
@@ -157,9 +153,7 @@ def _station_dict_to_model(station: Dict[str, Any]) -> Optional[Station]:
 
     campus_id = _coerce_int(station.get("campus_id"))
 
-    device_ids = _normalize_device_ids(
-        station.get("device_ids") or station.get("devids")
-    )
+    device_ids = _normalize_device_ids(station.get("device_ids") or station.get("devids"))
 
     updated_at = (
         station.get("updated_at")
@@ -487,9 +481,7 @@ async def get_status(
     )
 
     if devid and not provider:
-        raise HTTPException(
-            status_code=400, detail="查询 devid 时必须同时提供 provider 参数"
-        )
+        raise HTTPException(status_code=400, detail="查询 devid 时必须同时提供 provider 参数")
 
     try:
         cached_response = _build_cached_response(
@@ -519,9 +511,7 @@ async def get_status(
             logger.info("按 hash_id 过滤后，共 %d 个站点", len(filtered))
         elif provider and devid:
             filtered = [
-                s
-                for s in filtered
-                if _station_provider(s) == provider and _matches_devid(s, devid)
+                s for s in filtered if _station_provider(s) == provider and _matches_devid(s, devid)
             ]
             logger.info(
                 "按 provider+devid 过滤后，共 %d 个站点（provider=%s, devid=%s）",
@@ -598,9 +588,7 @@ async def background_fetch_task():
                         else:
                             logger.warning("首次后台抓取数据同步站点基础信息失败")
                     except Exception as exc:
-                        logger.error(
-                            "首次后台抓取同步站点信息发生异常: %s", exc, exc_info=True
-                        )
+                        logger.error("首次后台抓取同步站点信息发生异常: %s", exc, exc_info=True)
 
                 snapshot_time = result.get("updated_at", _get_timestamp())
                 if not snapshot_time:
@@ -649,9 +637,7 @@ async def background_fetch_task():
             if station_models:
                 try:
                     if batch_upsert_stations(station_models):
-                        logger.info(
-                            "后台抓取已同步 %d 条站点基础信息", len(station_models)
-                        )
+                        logger.info("后台抓取已同步 %d 条站点基础信息", len(station_models))
                     else:
                         logger.warning("后台抓取同步站点基础信息失败")
                 except Exception as exc:

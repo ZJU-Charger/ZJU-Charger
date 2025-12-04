@@ -30,3 +30,6 @@ AGENTS.md
 openspec/*
 data/*
 reports/*
+.uv-cache/
+*.egg-info/
+.venv/*

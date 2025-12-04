@@ -36,9 +36,7 @@ class ProviderBase(ABC):
         csv_path = self.DATA_DIR / csv_filename
 
         if not csv_path.exists():
-            print(
-                f"Warning: Station file not found for provider '{self.provider}' at {csv_path}"
-            )
+            print(f"Warning: Station file not found for provider '{self.provider}' at {csv_path}")
             self.station_list = []
             return []
 
@@ -65,9 +63,7 @@ class ProviderBase(ABC):
 
     # 其余抽象方法保持不变
     @abstractmethod
-    async def fetch_station_list(
-        self, session: ClientSession
-    ) -> Optional[List[Dict[str, Any]]]:
+    async def fetch_station_list(self, session: ClientSession) -> Optional[List[Dict[str, Any]]]:
         """获取供应商 api 返回的所有站点列表 (原始数据)"""
         raise NotImplementedError
 
@@ -86,8 +82,6 @@ class ProviderBase(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def fetch_status(
-        self, session: ClientSession
-    ) -> Optional[List[Dict[str, Any]]]:
+    async def fetch_status(self, session: ClientSession) -> Optional[List[Dict[str, Any]]]:
         """获取供应商所有 station 的状态数据并转换为统一格式。"""
         raise NotImplementedError

@@ -90,9 +90,7 @@ def batch_upsert_stations(stations: List[Any]) -> bool:  # 类型改为 List[Any
         for station in stations:
             station_id = getattr(station, "hash_id", None)
             if not station_id:
-                logger.warning(
-                    f"跳过缺少 hash_id 的站点: {getattr(station, 'name', 'unknown')}"
-                )
+                logger.warning(f"跳过缺少 hash_id 的站点: {getattr(station, 'name', 'unknown')}")
                 continue
 
             station_data = {

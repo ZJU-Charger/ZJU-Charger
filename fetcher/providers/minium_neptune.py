@@ -25,9 +25,7 @@ def get_device_info(address: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="测试尼普顿 getDeviceInfo API")
-    parser.add_argument(
-        "--address", type=str, default="50359163", help="设备地址 (默认: 50359163)"
-    )
+    parser.add_argument("--address", type=str, default="50359163", help="设备地址 (默认: 50359163)")
     args = parser.parse_args()
     # get_device_info(args.address)
     print(*get_device_info(args.address), sep="\n")

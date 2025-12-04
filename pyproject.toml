@@ -1,0 +1,93 @@
+[project]
+name = "zju-charger"
+version = "0.1.0"
+description = "FastAPI backend, data fetchers, and automation for the ZJU Charger project."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp",
+    "dingtalkchatbot",
+    "fastapi",
+    "httpx[socks]",
+    "python-dotenv",
+    "slowapi",
+    "supabase",
+    "uvicorn",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest",
+    "ruff",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+respect-gitignore = true
+src = [
+    "server",
+    "fetcher",
+    "db",
+    "ding",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "B",  # flake8-bugbear
+    "I",  # isort
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line length handled by formatter
+    "E402",
+    "E722",
+    "F401",
+    "F541",
+    "F821",
+    "B904",
+    "B905",
+    "I001",
+    "UP006",
+    "UP035",
+    "UP045",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"server/__init__.py" = ["F401"]
+"fetcher/__init__.py" = ["F401"]
+
+[tool.setuptools.packages.find]
+include = [
+    "server",
+    "server.*",
+    "fetcher",
+    "fetcher.*",
+    "db",
+    "db.*",
+    "ding",
+    "ding.*",
+]
+exclude = [
+    "assets",
+    "assets.*",
+    "docs",
+    "docs.*",
+    "frontend",
+    "frontend.*",
+    "openspec",
+    "openspec.*",
+    "reports",
+    "reports.*",
+]
+
+[build-system]
+requires = ["setuptools>=67"]
+build-backend = "setuptools.build_meta"

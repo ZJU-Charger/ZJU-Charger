@@ -105,7 +105,7 @@ class DingBot:
         message += f"**{total_used}**已用/"
         message += f"**{total_error}**错误/"
         message += f"**{total_num}**总端口\n\n"
-        message += f"使用率: **{(total_used / (total_num-total_error) * 100) if (total_num-total_error) > 0 else 0:.2f}%**\n\n"
+        message += f"使用率: **{(total_used / (total_num - total_error) * 100) if (total_num - total_error) > 0 else 0:.2f}%**\n\n"
         message += "> 有未收录站点请发送邮箱至 <群主邮箱>\n"
         # Send the message
         try:

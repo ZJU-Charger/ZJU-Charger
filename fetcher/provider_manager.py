@@ -34,9 +34,7 @@ class ProviderManager:
             neptune_junior.load_stations()
         except Exception as exc:
             logger.error("加载 %s 站点失败: %s", neptune.provider, exc, exc_info=True)
-            logger.error(
-                "加载 %s 站点失败: %s", neptune_junior.provider, exc, exc_info=True
-            )
+            logger.error("加载 %s 站点失败: %s", neptune_junior.provider, exc, exc_info=True)
         self.providers.append(neptune)
         logger.info(f"已注册服务商: {neptune.provider}")
 
@@ -56,9 +54,7 @@ class ProviderManager:
 
         for prov, result in zip(self.providers, results):
             if isinstance(result, Exception):
-                logger.error(
-                    f"服务商 {prov.provider} 加载站点数据失败: {result}", exc_info=True
-                )
+                logger.error(f"服务商 {prov.provider} 加载站点数据失败: {result}", exc_info=True)
             elif result is not None:
                 logger.info(f"服务商 {prov.provider} 成功加载 {len(result)} 个站点。")
 
@@ -81,9 +77,7 @@ class ProviderManager:
             for prov, result in zip(self.providers, fetch_results):
                 provider_key = prov.provider
                 if isinstance(result, Exception):
-                    logger.error(
-                        f"服务商 {provider_key} 获取数据失败: {result}", exc_info=True
-                    )
+                    logger.error(f"服务商 {provider_key} 获取数据失败: {result}", exc_info=True)
                     results[provider_key] = {
                         "status": "error",
                         "data": None,
@@ -126,9 +120,7 @@ class ProviderManager:
         tz_utc_8 = timezone(timedelta(hours=8))
         return datetime.now(tz_utc_8).isoformat()
 
-    async def fetch_and_format(
-        self, provider: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
+    async def fetch_and_format(self, provider: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """获取数据并格式化为 API 响应格式"""
 
         if provider:

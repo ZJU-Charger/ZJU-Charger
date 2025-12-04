@@ -2,7 +2,7 @@
 
 ![Star Badge](https://img.shields.io/github/stars/Phil-Fan/ZJU-Charger?style=social) ![License Badge](https://img.shields.io/github/license/Phil-Fan/ZJU-Charger) ![Contributors Badge](https://img.shields.io/github/contributors/Phil-Fan/ZJU-Charger) ![Issues Badge](https://img.shields.io/github/issues/Phil-Fan/ZJU-Charger) ![Pull Requests Badge](https://img.shields.io/github/issues-pr/Phil-Fan/ZJU-Charger) ![Last Commit Badge](https://img.shields.io/github/last-commit/Phil-Fan/ZJU-Charger) ![Code Size Badge](https://img.shields.io/github/languages/code-size/Phil-Fan/ZJU-Charger)
 
-[![Markdown Quality Check](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/markdown-check.yml/badge.svg)](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/markdown-check.yml) [![Python Lint Check](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/python-check.yml/badge.svg)](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/python-check.yml) [![pages-build-deployment](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/pages/pages-build-deployment)
+[![Markdown Quality Check](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/markdown-check.yml/badge.svg)](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/markdown-check.yml) [![Python (Ruff Action)](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/python-check.yml/badge.svg)](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/python-check.yml) [![pages-build-deployment](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/Phil-Fan/ZJU-Charger/actions/workflows/pages/pages-build-deployment)
 
 ![logo](assets/logo.gif)
 
@@ -156,8 +156,9 @@ project/
 ├── script/                   # iOS 快捷指令
 │   ├── README.md             # 快捷指令使用说明
 │   └── *.shortcut            # 快捷指令文件
-├── serve.sh                  # 快速启动脚本（自动安装依赖，调用 server.run_server 模块）
-└── requirements.txt          # 依赖库
+├── serve.sh                  # 快速启动脚本（基于 uv 同步依赖并调用 server.run_server）
+├── pyproject.toml            # Python 依赖声明 + uv/Ruff 配置
+└── uv.lock                   # uv 生成的锁定文件
 ```
 
 ## 许可证
@@ -202,7 +203,7 @@ project/
 - 特别鸣谢 [@qychen2001](https://github.com/qychen2001) 对项目的大力支持！
 - 使用 [minima](https://github.com/jekyll/minima) 主题生成项目文档。
 - 使用 [huacnlee/autocorrect](https://github.com/huacnlee/autocorrect/), [DavidAnson/markdownlint-cli2-action](https://github.com/DavidAnson/markdownlint-cli2-action) 与 [gaurav-nelson/github-action-markdown-link-check](https://github.com/gaurav-nelson/github-action-markdown-link-check) 对 Markdown 文档进行自动化检查。
-- 使用 [black](https://github.com/psf/black) 与 [lgeiger/black-action](https://github.com/lgeiger/black-action) 对 Python 代码进行自动化格式检查。
+- 使用 [uv](https://docs.astral.sh/uv/) 管理 Python 依赖，并以 [Ruff](https://docs.astral.sh/ruff/) 统一完成格式化与 Lint（CI 通过 [astral-sh/ruff-action](https://github.com/astral-sh/ruff-action) 并行执行 `ruff format --check` 与 `ruff check`）。
 - 使用 [jitter.video](https://jitter.video/templates) 实现 GIF 动画。
 - 使用 [Star History](https://star-history.com/) 实现 star 历史统计。
 - 使用 [Google analytics](https://analytics.google.com/) 和 [Clarity](https://clarity.microsoft.com/) 实现网站访问统计与用户理解。

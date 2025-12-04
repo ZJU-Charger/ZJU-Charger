@@ -4,16 +4,17 @@
 
 ## 系统要求
 
-- Python 3.8+
-- pip 包管理器
-- 网络连接（用于访问充电桩服务商 API）
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) 包管理器（建议使用 `curl -LsSf https://astral.sh/uv/install.sh | sh` 或 Homebrew 安装）
+- 网络连接（用于访问充电桩服务商 API 及 PyPI）
 
 ## 快速启动
 
 ### 1. 安装依赖
 
 ```bash
-pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+export UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple  # 可选：使用清华镜像
+uv sync --frozen
 ```
 
 ### 2. 配置环境变量
@@ -53,31 +54,28 @@ SUPABASE_KEY=your-service-role-key-here
 ./serve.sh
 ```
 
-`serve.sh` 脚本会自动安装依赖并启动服务器，适合快速启动。
+`serve.sh` 会检测 uv 是否可用、同步锁定依赖（遵循 `uv.lock`），然后执行 `uv run python -m server.run_server`，适合快速启动。
 
 #### 方式二：使用 Python 模块
 
 ```bash
-python -m server.run_server
+uv run python -m server.run_server
 ```
 
 也可以增加一些启动参数：
 
 ```bash
-# 基本启动（使用模块方式）
-python -m server.run_server
-
 # 指定主机和端口
-python -m server.run_server --host 0.0.0.0 --port 8000
+uv run python -m server.run_server --host 0.0.0.0 --port 8000
 
 # 启用自动重载（开发模式）
-python -m server.run_server --reload
+uv run python -m server.run_server --reload
 
 # 保存日志到文件
-python -m server.run_server --log-file logs/server.log
+uv run python -m server.run_server --log-file logs/server.log
 
 # 设置日志级别
-python run_server.py --log-level DEBUG
+uv run python run_server.py --log-level DEBUG
 ```
 
 ## 生产环境部署

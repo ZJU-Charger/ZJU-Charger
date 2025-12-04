@@ -29,9 +29,7 @@ class NeptuneProvider(ProviderBase):
 
     # --- 抽象方法实现 ---
 
-    async def fetch_station_list(
-        self, session: ClientSession
-    ) -> Optional[List[Dict[str, Any]]]:
+    async def fetch_station_list(self, session: ClientSession) -> Optional[List[Dict[str, Any]]]:
         """获取供应商 API 返回的所有站点列表 (原始数据)"""
         # TODO: 实现尼普顿的站点列表获取
 
@@ -69,7 +67,7 @@ class NeptuneProvider(ProviderBase):
                     )
 
             except (
-                asyncio.TimeoutError,
+                TimeoutError,
                 aiohttp.ClientError,
                 json.JSONDecodeError,
             ) as e:
@@ -108,9 +106,7 @@ class NeptuneProvider(ProviderBase):
             portstatus = str(device_data.get("portstatur", ""))
 
             if not portstatus:
-                logger.warning(
-                    "Device %s status data has no 'portstatur' string.", device_id
-                )
+                logger.warning("Device %s status data has no 'portstatur' string.", device_id)
                 continue
             # print(portstatus)
             free += portstatus.count("0")
@@ -138,28 +134,21 @@ class NeptuneProvider(ProviderBase):
 
         return aggregated_status, None
 
-    async def fetch_status(
-        self, session: ClientSession
-    ) -> Optional[List[Dict[str, Any]]]:
+    async def fetch_status(self, session: ClientSession) -> Optional[List[Dict[str, Any]]]:
         """获取供应商所有 station 的状态数据并转换为统一格式。"""
 
         if not self.station_list:
             return []
 
-        tasks = [
-            self.fetch_station_status(station, session) for station in self.station_list
-        ]
+        tasks = [self.fetch_station_status(station, session) for station in self.station_list]
 
         results = await asyncio.gather(*tasks)
         final_list: List[Dict[str, Any]] = []
 
         for station, (status_dict, exc) in zip(self.station_list, results):
-
             # 失败处理：返回全故障条目
             if exc or status_dict is None:
-                total_ports = sum(
-                    len(d) for d in station.device_ids
-                )  # 粗略估计端口总数
+                total_ports = sum(len(d) for d in station.device_ids)  # 粗略估计端口总数
                 final_list.append(
                     {
                         "provider": self.provider,
@@ -173,12 +162,8 @@ class NeptuneProvider(ProviderBase):
                         "updated_at": station.updated_at,
                         "free": 0,
                         "used": 0,
-                        "total": (
-                            status_dict.get("total", 0) if status_dict else total_ports
-                        ),
-                        "error": (
-                            status_dict.get("total", 0) if status_dict else total_ports
-                        ),
+                        "total": (status_dict.get("total", 0) if status_dict else total_ports),
+                        "error": (status_dict.get("total", 0) if status_dict else total_ports),
                     }
                 )
                 continue

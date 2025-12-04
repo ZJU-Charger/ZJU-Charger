@@ -1,4 +1,4 @@
-name: Python Lint Check
+name: Python (Ruff Action)
 on:
   push:
     branches: [ main ]
@@ -14,7 +14,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Black Code Formatter
-        uses: lgeiger/black-action@v1.0.1
+      - name: Ruff Format Check
+        uses: astral-sh/ruff-action@v3
         with:
-          args: ". --check"
+          args: "format --check --diff"
+          version-file: "pyproject.toml"
+
+      - name: Ruff Lint
+        uses: astral-sh/ruff-action@v3
+        with:
+          version-file: "pyproject.toml"
