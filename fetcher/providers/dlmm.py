@@ -62,7 +62,7 @@ class DlmmProvider(ProviderBase):
             return None, err
 
         socket_array = result["data"].get("socketArray", []) or []
-        logger.info(socket_array)
+        # logger.info(socket_array)
         total = len(socket_array)
         free = sum(1 for socket in socket_array if socket.get("status") == 0)
         used = sum(1 for socket in socket_array if socket.get("status") == 1)
