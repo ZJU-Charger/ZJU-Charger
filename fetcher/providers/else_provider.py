@@ -3,12 +3,17 @@ from typing import List, Dict, Any, Optional, Tuple
 import aiohttp
 import asyncio
 from fetcher.station import Station, load_stations_from_csv
+from server.config import Config
+import logging
 
-
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler())
 class ElseProvider(ProviderBase):
     def __init__(self):
         super().__init__()
-
+        self.opentool_token = Config.get_provider_config_value("else_provider", "opentool_token", "")
+        logger.info(f"opentool_token: {self.opentool_token}")
     @property
     def provider(self) -> str:
         return "其他"
@@ -42,7 +47,36 @@ class ElseProvider(ProviderBase):
         elif station.provider == "电动车充电网":
             return {"total": 0, "free": 0, "used": 0, "error": 0}, None
         elif station.provider == "多航科技":
-            return {"total": 0, "free": 0, "used": 0, "error": 0}, None
+            url = "https://mini.opencool.top/api/device.device/scan"
+            headers = {
+                'Content-Type': "application/json",
+                'token': self.opentool_token,
+            }
+            data = {
+                "sn": f"GD1B{device_id}",
+                "_sn": f"GD1B{device_id}",
+                "is_check": 0,
+                "new_rule": 1
+            }
+            try:
+                async with session.post(url, headers=headers, json=data) as resp:
+                    resp_data = await resp.json()
+                    data = resp_data.get("data", {})
+                    # name = data.get("device_data", "").get("description", "")
+                    port_list = data.get("port_list", [])
+                    
+                    free = used = total = error = 0
+                    for port in port_list:
+                        if port.get("status_text") == "使用中":
+                            used += 1
+                        elif port.get("status_text") == "空闲":
+                            free += 1
+                        else:
+                            error += 1
+                    total = free + used + error
+                    return {"total": total, "free": free, "used": used, "error": error}, None
+            except Exception as exc:
+                return {"total": 0, "free": 0, "used": 0, "error": 0}, exc
         elif station.provider == "威可迪":
             return {"total": 0, "free": 0, "used": 0, "error": 0}, None
         elif station.provider == "待补充":
