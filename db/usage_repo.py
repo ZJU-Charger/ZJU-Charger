@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 LATEST_TABLE_NAME = "latest"
 USAGE_TABLE_NAME = "usage"
+DEFAULT_RETURNING = "minimal"
 
 # --- 公共接口实现 ---
 
@@ -78,17 +79,15 @@ def insert(data: Dict[str, Any], sheet_name: str) -> bool:
     try:
         if table_name == LATEST_TABLE_NAME:
             # 针对 latest 表使用 upsert (单条)
-            result = client.table(table_name).upsert([record], on_conflict="hash_id").execute()
+            client.table(table_name).upsert(
+                [record], on_conflict="hash_id", returning=DEFAULT_RETURNING
+            ).execute()
         else:
             # 针对 usage 表使用 insert (单条)
-            result = client.table(table_name).insert([record]).execute()
+            client.table(table_name).insert([record], returning=DEFAULT_RETURNING).execute()
 
-        if result.data:
-            logger.debug(f"成功插入/更新 {table_name} 单条记录。")
-            return True
-        else:
-            logger.warning(f"插入/更新 {table_name} 失败：无返回数据。")
-            return False
+        logger.debug(f"成功插入/更新 {table_name} 单条记录。")
+        return True
 
     except Exception as e:
         logger.error(f"执行单条数据库操作失败: {e}", exc_info=True)
@@ -149,18 +148,22 @@ def batch_insert(data: Dict[str, Any], sheet_name: str) -> bool:
     try:
         # 针对 latest 表使用 upsert，针对 usage 表使用 insert
         if table_name == LATEST_TABLE_NAME:
-            result = client.table(table_name).upsert(usage_records, on_conflict="hash_id").execute()
+            client.table(table_name).upsert(
+                usage_records,
+                on_conflict="hash_id",
+                returning=DEFAULT_RETURNING,
+            ).execute()
             action = "更新/插入"
         else:
-            result = client.table(table_name).insert(usage_records).execute()
+            client.table(table_name).insert(
+                usage_records, returning=DEFAULT_RETURNING
+            ).execute()
             action = "插入"
 
-        if result.data:
-            logger.info(f"成功批量 {action} {table_name} {len(result.data)} 条记录。")
-            return True
-        else:
-            logger.warning(f"批量 {action} {table_name} 失败：无返回数据。")
-            return False
+        logger.info(
+            f"成功批量 {action} {table_name} {len(usage_records)} 条记录。"
+        )
+        return True
 
     except Exception as e:
         logger.error(f"批量数据库操作失败: {e}", exc_info=True)
