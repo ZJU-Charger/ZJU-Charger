@@ -1,5 +1,5 @@
-name,provider,campus,lat,lon,device_ids
-紫金港安中大楼北侧A区,neptune_junior,2,30.308031,120.090237,[35]
-紫金港安中大楼北侧BC区(安中专用),neptune_junior,2,30.308036,120.089635,"[36,37]"
-紫金港安中球场西侧,neptune_junior,2,30.309235,120.088791,[30]
-紫金港动物中心A区,neptune_junior,2,30.314130,120.084095,[125]
+name,provider,campus,lon,lat,device_ids
+紫金港安中大楼北侧A区,neptune_junior,2,120.090237,30.308031,[35]
+紫金港安中大楼北侧BC区(安中专用),neptune_junior,2,120.089635,30.308036,"[36,37]"
+紫金港安中球场西侧,neptune_junior,2,120.088791,30.309235,[30]
+紫金港动物中心A区,neptune_junior,2,120.084095,30.314130,[125]
