@@ -86,22 +86,32 @@ class ElseProvider(ProviderBase):
         elif station.provider == "待补充":
             return {"total": 0, "free": 0, "used": 0, "error": 0}, None
         elif station.provider == "嘟嘟换电":
-            url = f'https://api.dudugxcd.com/sharing-citybike-consumer/site/v2/map/info?id={device_id}' # good!
+            url = f"https://api.dudugxcd.com/sharing-citybike-consumer/site/v2/map/info?id={device_id}"  # good!
             try:
-                async with session.get(url, headers= {'oem_code': 'citybike'}) as resp:
+                async with session.get(url, headers={"oem_code": "citybike"}) as resp:
                     data = await resp.json()
-                    if data.get('code') != 200:
-                        error_msg = data.get('message', 'Unknown API Error')
+                    if data.get("code") != 200:
+                        error_msg = data.get("message", "Unknown API Error")
                         return {"total": 0, "free": 0, "used": 0, "error": 0}, Exception(error_msg)
-                    exchange_vo = data.get('data', {}).get('cbExchangeVOList')
-                    free = data.get('data', {}).get('storeTake') # 这里没有弄清楚其能用的标准是什么，free就不按照一个电站进行统计了，经过了验证
+                    exchange_vo = data.get("data", {}).get("cbExchangeVOList")
+                    free = data.get(
+                        "data", {}
+                    ).get(
+                        "storeTake"
+                    )  # 这里没有弄清楚其能用的标准是什么，free就不按照一个电站进行统计了，经过了验证
                     used = error = total = 0
-                    if exchange_vo and isinstance(exchange_vo, list): # 按电站来计算
+                    if exchange_vo and isinstance(exchange_vo, list):  # 按电站来计算
                         for device in exchange_vo:
-                            upload_vo = device.get('cbExchangeUploadVO', {}) if isinstance(device, dict) else {}
-                            used += upload_vo.get('storeNull', 0) # 这个是对的
-                            error += upload_vo.get('storeLowPowerBatteryCharge', 0) + upload_vo.get('storeSoftLock', 0) # 这个不一定是对的
-                            total += upload_vo.get('storeCount', 0) # 这个是对的
+                            upload_vo = (
+                                device.get("cbExchangeUploadVO", {})
+                                if isinstance(device, dict)
+                                else {}
+                            )
+                            used += upload_vo.get("storeNull", 0)  # 这个是对的
+                            error += upload_vo.get("storeLowPowerBatteryCharge", 0) + upload_vo.get(
+                                "storeSoftLock", 0
+                            )  # 这个不一定是对的
+                            total += upload_vo.get("storeCount", 0)  # 这个是对的
                     return {"total": total, "free": free, "used": used, "error": error}, None
             except Exception as exc:
                 return {"total": 0, "free": 0, "used": 0, "error": 0}, exc
