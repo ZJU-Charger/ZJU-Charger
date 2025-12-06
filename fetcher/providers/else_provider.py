@@ -20,6 +20,9 @@ class ElseProvider(ProviderBase):
         self.letfungo_token = Config.get_provider_config_value(
             "else_provider", "letfungo_token", ""
         )
+        self.wanchong_token = Config.get_provider_config_value(
+            "else_provider", "wanchong_token", ""
+        )
 
     @property
     def provider(self) -> str:
@@ -44,7 +47,26 @@ class ElseProvider(ProviderBase):
         self, station: Station, device_id: str, session: aiohttp.ClientSession
     ) -> Tuple[Optional[Dict[str, Any]], Optional[Exception]]:
         if station.provider == "万充科技":
-            return {"total": 0, "free": 0, "used": 0, "error": 0}, None
+            url = f"https://websocket.wanzhuangkj.com/query?company_id=29&device_num={device_id}"
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        url, headers={"authorization": self.wanchong_token}, timeout=5
+                    ) as resp:
+                        resp.raise_for_status()
+                        data = await resp.json(content_type=None)
+                ports = data.get("data", {}).get("port", [])
+                state = [port.get("state") for port in ports]
+                free = state.count(0)
+                used = state.count(2)
+                return {
+                    "total": len(state),
+                    "free": free,
+                    "used": used,
+                    "error": len(state) - free - used,
+                }, None
+            except Exception as exc:
+                return {"total": 0, "free": 0, "used": 0, "error": 0}, exc
         elif station.provider == "超翔科技":
             url = "https://api2.hzchaoxiang.cn/api-device/api/v1/scan/Index"
             try:
