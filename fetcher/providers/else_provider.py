@@ -23,9 +23,7 @@ class ElseProvider(ProviderBase):
         self.wanchong_token = Config.get_provider_config_value(
             "else_provider", "wanchong_token", ""
         )
-        self.wkd_token = Config.get_provider_config_value(
-            "else_provider", "wkd_token", ""
-        )
+        self.wkd_token = Config.get_provider_config_value("else_provider", "wkd_token", "")
 
     @property
     def provider(self) -> str:
@@ -135,12 +133,18 @@ class ElseProvider(ProviderBase):
             except Exception as exc:
                 return {"total": 0, "free": 0, "used": 0, "error": 0}, exc
         elif station.provider == "威可迪换电":
-            url = 'https://gateway.wkdsz.com/ce-battery-account/app/cabinetDevice/getCabinetDeviceDoorById'
+            url = "https://gateway.wkdsz.com/ce-battery-account/app/cabinetDevice/getCabinetDeviceDoorById"
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.post(url, headers={'header-secretkey': self.wkd_token}, json={"id": device_id}) as resp:
+                    async with session.post(
+                        url, headers={"header-secretkey": self.wkd_token}, json={"id": device_id}
+                    ) as resp:
                         result = await resp.json()
-                doors = result.get('data', {}).get('cabinetDeviceList', [{}])[0].get('detailBatteryList', [])
+                doors = (
+                    result.get("data", {})
+                    .get("cabinetDeviceList", [{}])[0]
+                    .get("detailBatteryList", [])
+                )
                 free = used = error = 0
                 for door in doors:
                     if door.get("onlineStatus") is None:
