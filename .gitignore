@@ -34,4 +34,4 @@ reports/*
 .uv-cache/
 *.egg-info/
 .venv/*
-test.py
+test.*

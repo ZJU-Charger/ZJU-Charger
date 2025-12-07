@@ -19,6 +19,7 @@ ZJU Charger 基于 FastAPI 开发，瞄准**校内充电桩不好找、供应商
 
 ## News
 
+- 2025.12.07 - 修复 [CVE-2025-55182](https://www.cve.org/CVERecord?id=CVE-2025-55182); 支持紫金创业园站点
 - 2025.12.05 - 支持堕落街服务商，校准并支持西溪校区站点；最新介绍推文详见 [ZJU Charger:便捷高效的充电桩查询助手](https://mp.weixin.qq.com/s/fh2EriLV7aPlDiwghRCwzw)
 - 2025.12.02 - 重构前端 UI 并支持尼普顿智慧生活公众号查询
 - 2025.11.30 - GitHub 达到 50 Star，感谢支持！[校内公众号宣传贴](https://mp.weixin.qq.com/s/8tX1yHx_uvv64XQashPpTA)
@@ -209,6 +210,8 @@ project/
 - 使用 [Star History](https://star-history.com/) 实现 star 历史统计。
 - 使用 [Google analytics](https://analytics.google.com/) 和 [Clarity](https://clarity.microsoft.com/) 实现网站访问统计与用户理解。
 - 使用 [Aliyun ECS](https://www.aliyun.com/product/ecs) 实现服务器部署，也使用了 [Vercel](https://vercel.com/) 与 [Cloudflare Pages](https://pages.cloudflare.com/) 实现静态网站部署。
+- 感谢 [Elliottt001](https://github.com/Elliottt001)、[Kolle](https://www.cc98.org/user/id/584395)、[且寄白鹿_](https://www.cc98.org/user/id/648756)、[HansWang](https://www.cc98.org/user/id/650562)、[jeno_ccc](https://www.cc98.org/user/id/781655)、小王子、红豆糕糕糕、木子霏、云兮归处、青雨、Geoay、小彦子穿花衣 等用户对于站点坐标校准的帮助！
+- 感谢各位用户对于项目功能的建议与反馈！
 
 感谢所有贡献者！
 
