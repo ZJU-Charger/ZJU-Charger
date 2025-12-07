@@ -67,7 +67,7 @@ class ElseProvider(ProviderBase):
                 }, None
             except Exception as exc:
                 return {"total": 0, "free": 0, "used": 0, "error": 0}, exc
-        elif station.provider == "超翔科技":
+        elif station.provider == "点点畅行":
             url = "https://api2.hzchaoxiang.cn/api-device/api/v1/scan/Index"
             try:
                 async with aiohttp.ClientSession() as session:
@@ -75,8 +75,8 @@ class ElseProvider(ProviderBase):
                         data = await resp.json()
                 device_ways = data.get("data", {}).get("DeviceWays", [])
                 sta = [way.get("State") for way in device_ways]
-                free = sta.count(1)
-                used = sta.count(2)
+                free = sta.count(2)
+                used = sta.count(1)
                 return {
                     "total": len(device_ways),
                     "free": free,
@@ -135,6 +135,7 @@ class ElseProvider(ProviderBase):
             return {"total": 0, "free": 0, "used": 0, "error": 0}, None
         elif station.provider == "待补充":
             return {"total": 0, "free": 0, "used": 0, "error": 0}, None
+        # TODO: 把嘟嘟换电独立出去
         elif station.provider == "嘟嘟换电":
             url = f"https://api.dudugxcd.com/sharing-citybike-consumer/site/v2/map/info?id={device_id}"  # good!
             try:

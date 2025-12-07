@@ -69,8 +69,6 @@ class ProviderManager:
             elif result is not None:
                 logger.info(f"服务商 {prov.provider} 成功加载 {len(result)} 个站点。")
 
-    # --- 核心调度和合并 ---
-
     async def fetch_all_providers(self) -> Dict[str, Any]:
         """并发获取所有服务商的数据"""
         results = {}

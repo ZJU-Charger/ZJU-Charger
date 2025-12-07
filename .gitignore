@@ -26,6 +26,7 @@ logs/
 Thumbs.db
 .env*
 .pytest_cache/
+.ruff_cache/*
 AGENTS.md
 openspec/*
 data/*
