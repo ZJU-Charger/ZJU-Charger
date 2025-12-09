@@ -210,7 +210,7 @@ project/
 - 使用 [Star History](https://star-history.com/) 实现 star 历史统计。
 - 使用 [Google analytics](https://analytics.google.com/) 和 [Clarity](https://clarity.microsoft.com/) 实现网站访问统计与用户理解。
 - 使用 [Aliyun ECS](https://www.aliyun.com/product/ecs) 实现服务器部署，也使用了 [Vercel](https://vercel.com/) 与 [Cloudflare Pages](https://pages.cloudflare.com/) 实现静态网站部署。
-- 感谢 [Elliottt001](https://github.com/Elliottt001)、[Kolle](https://www.cc98.org/user/id/584395)、[且寄白鹿_](https://www.cc98.org/user/id/648756)、[HansWang](https://www.cc98.org/user/id/650562)、[jeno_ccc](https://www.cc98.org/user/id/781655)、小王子、红豆糕糕糕、木子霏、云兮归处、青雨、Geoay、小彦子穿花衣 等用户对于站点坐标校准的帮助！
+- 感谢 [Elliottt001](https://github.com/Elliottt001)、[Kolle](https://www.cc98.org/user/id/584395)、[且寄白鹿_](https://www.cc98.org/user/id/648756)、[HansWang](https://www.cc98.org/user/id/650562)、[jeno_ccc](https://www.cc98.org/user/id/781655)、小王子、红豆糕糕糕、木子霏、云兮归处、青雨、Geoay、小彦子穿花衣、帆 等用户对于站点坐标校准的帮助！
 - 感谢各位用户对于项目功能的建议与反馈！
 
 感谢所有贡献者！
