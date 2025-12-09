@@ -1,15 +1,12 @@
 import aiohttp
 import asyncio
 import json
-import logging
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List, Tuple
 
 from .provider_base import ProviderBase
 from fetcher.station import Station
 from server.config import Config
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass

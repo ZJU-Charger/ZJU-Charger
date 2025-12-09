@@ -1,10 +1,11 @@
 """DLMM (DianLvMama) provider adapter."""
 
 import asyncio
-import logging
 import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
+
+import logfire
 
 import aiohttp
 
@@ -12,7 +13,9 @@ from .provider_base import ProviderBase
 from fetcher.station import Station
 from server.config import Config
 
-logger = logging.getLogger(__name__)
+from server.logfire_setup import ensure_logfire_configured
+
+ensure_logfire_configured()
 
 
 @dataclass
@@ -53,16 +56,20 @@ class DlmmProvider(ProviderBase):
                 response.raise_for_status()
                 result = await response.json()
         except Exception as exc:
-            logger.warning("DLMM request failed for device %s: %s", device_id, exc)
+            logfire.warn(
+                "DLMM request failed for device {device_id}: {error}",
+                device_id=device_id,
+                error=str(exc),
+            )
             return None, exc
 
         if result.get("code") != 200 or "data" not in result:
             err = ValueError(f"Unexpected DLMM response for device {device_id}: {result}")
-            logger.warning(str(err))
+            logfire.warn("Unexpected DLMM response: {message}", message=str(err))
             return None, err
 
         socket_array = result["data"].get("socketArray", []) or []
-        # logger.info(socket_array)
+        # logfire.info(socket_array)
         total = len(socket_array)
         free = sum(1 for socket in socket_array if socket.get("status") == 0)
         used = sum(1 for socket in socket_array if socket.get("status") == 1)
@@ -83,7 +90,11 @@ class DlmmProvider(ProviderBase):
 
         for device_id, (data, exc) in zip(station.device_ids, results):
             if exc or data is None:
-                logger.warning("Failed to fetch DLMM status for %s: %s", device_id, exc)
+                logfire.warn(
+                    "Failed to fetch DLMM status for {device_id}: {error}",
+                    device_id=device_id,
+                    error=str(exc),
+                )
                 continue
             total += data["total"]
             free += data["free"]
@@ -103,7 +114,7 @@ class DlmmProvider(ProviderBase):
 
         for station, (status, exc) in zip(self.station_list, results):
             if exc or status is None:
-                logger.warning("DLMM station %s failed, fallback zeros", station.name)
+                logfire.warn("DLMM station {station_name} failed, fallback zeros", station_name=station.name)
                 final_list.append(
                     {
                         "provider": self.provider,

@@ -4,11 +4,6 @@ import aiohttp
 import asyncio
 from fetcher.station import Station, load_stations_from_csv
 from server.config import Config
-import logging
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.addHandler(logging.StreamHandler())
 
 
 class ElseProvider(ProviderBase):

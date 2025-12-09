@@ -1,7 +1,6 @@
 """服务商管理器：管理所有充电桩服务商，提供统一接口"""
 
 import asyncio
-import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
 
@@ -12,7 +11,10 @@ from fetcher.providers.neptune_junior import NeptuneJuniorProvider
 from fetcher.providers.dlmm import DlmmProvider
 from fetcher.providers.else_provider import ElseProvider
 
-logger = logging.getLogger(__name__)
+import logfire
+from server.logfire_setup import ensure_logfire_configured
+
+ensure_logfire_configured()
 
 
 class ProviderManager:
@@ -39,18 +41,34 @@ class ProviderManager:
             dlmm.load_stations()
             else_provider.load_stations()
         except Exception as exc:
-            logger.error("加载 %s 站点失败: %s", neptune.provider, exc, exc_info=True)
-            logger.error("加载 %s 站点失败: %s", neptune_junior.provider, exc, exc_info=True)
-            logger.error("加载 %s 站点失败: %s", dlmm.provider, exc, exc_info=True)
-            logger.error("加载 %s 站点失败: %s", else_provider.provider, exc, exc_info=True)
+            logfire.error(
+                "加载 {provider} 站点失败: {error}",
+                provider=neptune.provider,
+                error=str(exc),
+            )
+            logfire.error(
+                "加载 {provider} 站点失败: {error}",
+                provider=neptune_junior.provider,
+                error=str(exc),
+            )
+            logfire.error(
+                "加载 {provider} 站点失败: {error}",
+                provider=dlmm.provider,
+                error=str(exc),
+            )
+            logfire.error(
+                "加载 {provider} 站点失败: {error}",
+                provider=else_provider.provider,
+                error=str(exc),
+            )
         self.providers.append(neptune)
-        logger.info(f"已注册服务商: {neptune.provider}")
+        logfire.info("已注册服务商: {provider}", provider=neptune.provider)
         self.providers.append(neptune_junior)
-        logger.info(f"已注册服务商: {neptune_junior.provider}")
+        logfire.info("已注册服务商: {provider}", provider=neptune_junior.provider)
         self.providers.append(dlmm)
-        logger.info(f"已注册服务商: {dlmm.provider}")
+        logfire.info("已注册服务商: {provider}", provider=dlmm.provider)
         self.providers.append(else_provider)
-        logger.info(f"已注册服务商: {else_provider.provider}")
+        logfire.info("已注册服务商: {provider}", provider=else_provider.provider)
 
     def list_providers(self) -> List[Dict[str, str]]:
         """返回当前已注册的服务商列表"""
@@ -58,16 +76,24 @@ class ProviderManager:
 
     async def initialize_providers(self):
         """初始化所有服务商：加载其对应的 CSV 站点数据。"""
-        logger.info("开始初始化并加载所有服务商的站点数据...")
+        logfire.info("开始初始化并加载所有服务商的站点数据...")
 
         load_tasks = [prov.load_stations() for prov in self.providers]
         results = await asyncio.gather(*load_tasks, return_exceptions=True)
 
         for prov, result in zip(self.providers, results):
             if isinstance(result, Exception):
-                logger.error(f"服务商 {prov.provider} 加载站点数据失败: {result}", exc_info=True)
+                logfire.error(
+                    "服务商 {provider} 加载站点数据失败: {error}",
+                    provider=prov.provider,
+                    error=str(result),
+                )
             elif result is not None:
-                logger.info(f"服务商 {prov.provider} 成功加载 {len(result)} 个站点。")
+                logfire.info(
+                    "服务商 {provider} 成功加载 {count} 个站点。",
+                    provider=prov.provider,
+                    count=len(result),
+                )
 
     async def fetch_all_providers(self) -> Dict[str, Any]:
         """并发获取所有服务商的数据"""
@@ -86,7 +112,11 @@ class ProviderManager:
             for prov, result in zip(self.providers, fetch_results):
                 provider_key = prov.provider
                 if isinstance(result, Exception):
-                    logger.error(f"服务商 {provider_key} 获取数据失败: {result}", exc_info=True)
+                    logfire.error(
+                        "服务商 {provider} 获取数据失败: {error}",
+                        provider=provider_key,
+                        error=str(result),
+                    )
                     results[provider_key] = {
                         "status": "error",
                         "data": None,
@@ -137,7 +167,7 @@ class ProviderManager:
                 (prov for prov in self.providers if prov.provider == provider), None
             )
             if provider_obj is None:
-                logger.error(f"未找到服务商: {provider}")
+                logfire.error("未找到服务商: {provider}", provider=provider)
                 return None
 
             async with aiohttp.ClientSession() as session:

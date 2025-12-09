@@ -1,12 +1,12 @@
 """FastAPI 主服务"""
 
+import logfire
 from fastapi import FastAPI, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any
 import json
 import sys
-import logging
 import asyncio
 from pathlib import Path
 
@@ -15,18 +15,15 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-# 配置日志（如果还没有配置）
-if not logging.getLogger().handlers:
-    from server.logging_config import setup_logging
+from server.logfire_setup import ensure_logfire_configured
 
-    setup_logging(level=logging.INFO)
-logger = logging.getLogger(__name__)
+ensure_logfire_configured()
 
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fetcher.provider_manager import ProviderManager
-from fetcher.station import Station
+from fetcher.station import Station, StationUsage
 from server.config import Config
 from db import (
     initialize_supabase_config,
@@ -42,12 +39,15 @@ provider_manager = ProviderManager()
 
 app = FastAPI(title="ZJU Charger API", version="1.0.0")
 
-logger.info("初始化 FastAPI 应用")
+# logfire captures structured logs/traces for observability before other startup tasks
+logfire.instrument_fastapi(app)
+logfire.info("Initializing FastAPI application", name="world")
+logfire.info("初始化 FastAPI 应用")
 
 if Config.SUPABASE_URL and Config.SUPABASE_KEY:
     initialize_supabase_config(Config.SUPABASE_URL, Config.SUPABASE_KEY)
 else:
-    logger.warning("Supabase URL/KEY 未配置，将无法访问云端缓存和历史数据。")
+    logfire.warn("Supabase URL/KEY 未配置，将无法访问云端缓存和历史数据。")
 
 # 初始化 slowapi 限流器（如果启用限流）
 # 默认使用内存存储，如需使用 Redis，可修改为：
@@ -57,12 +57,14 @@ if Config.RATE_LIMIT_ENABLED:
     # 注册限流异常处理器
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-    logger.info(
-        f"slowapi 限流器已初始化（使用内存存储），默认规则: {Config.RATE_LIMIT_DEFAULT}, /api/status 规则: {Config.RATE_LIMIT_STATUS}"
+    logfire.info(
+        "slowapi 限流器已初始化（使用内存存储），默认规则: {default_rule}，/api/status 规则: {status_rule}",
+        default_rule=Config.RATE_LIMIT_DEFAULT,
+        status_rule=Config.RATE_LIMIT_STATUS,
     )
 else:
     limiter = None
-    logger.info("限流功能已禁用")
+    logfire.info("限流功能已禁用")
 
 
 def apply_rate_limit(limit_str: str):
@@ -85,13 +87,16 @@ def _sync_stations_from_providers(manager: ProviderManager):
             stations.extend(station_defs)
 
     if not stations:
-        logger.warning("未从服务商加载到站点定义，跳过 stations 表同步")
+        logfire.warn("未从服务商加载到站点定义，跳过 stations 表同步")
         return
 
     if batch_upsert_stations(stations):
-        logger.info("已根据服务商定义同步 %d 条站点信息到数据库", len(stations))
+        logfire.info(
+            "已根据服务商定义同步 {station_count} 条站点信息到数据库",
+            station_count=len(stations),
+        )
     else:
-        logger.error("同步服务商站点定义到数据库失败")
+        logfire.error("同步服务商站点定义到数据库失败")
 
 
 def _coerce_int(value: Any, default: int = 0) -> int:
@@ -140,7 +145,7 @@ def _station_dict_to_model(station: Dict[str, Any]) -> Optional[Station]:
 
     provider = station.get("provider")
     if not provider:
-        logger.debug("站点数据缺少 provider，跳过: %s", station)
+        logfire.debug("站点数据缺少 provider，跳过: {station}", station=station)
         return None
 
     name = (
@@ -163,7 +168,7 @@ def _station_dict_to_model(station: Dict[str, Any]) -> Optional[Station]:
     )
 
     try:
-        return Station(
+        station_model = Station(
             name=name,
             provider=provider,
             campus_id=campus_id,
@@ -172,13 +177,19 @@ def _station_dict_to_model(station: Dict[str, Any]) -> Optional[Station]:
             device_ids=device_ids,
             campus_name=station.get("campus_name", ""),
             updated_at=updated_at,
+        )
+        station_model.usage = StationUsage(
             free=_coerce_int(station.get("free")),
             used=_coerce_int(station.get("used")),
             total=_coerce_int(station.get("total")),
             error=_coerce_int(station.get("error")),
         )
+        provided_hash_id = station.get("hash_id") or station.get("id")
+        if provided_hash_id:
+            station_model.hash_id = provided_hash_id
+        return station_model
     except Exception as exc:
-        logger.debug("构建 Station 模型失败: %s", exc)
+        logfire.debug("构建 Station 模型失败: {error}", error=str(exc))
         return None
 
 
@@ -194,28 +205,39 @@ def _station_models_from_result(stations: List[Dict[str, Any]]) -> List[Station]
 @app.on_event("startup")
 async def startup_event():
     """服务器启动时执行的操作"""
-    logger.info("=" * 60)
-    logger.info("服务器启动中...")
-    logger.info("=" * 60)
+    separator = "=" * 60
+    logfire.info("{separator}", separator=separator)
+    logfire.info("服务器启动中...")
+    logfire.info("{separator}", separator=separator)
 
     # 记录配置信息
-    logger.info(f"配置信息：")
-    logger.info(f"  - API 地址: {Config.API_HOST}:{Config.API_PORT}")
-    logger.info(f"  - 后端定时抓取间隔: {Config.BACKEND_FETCH_INTERVAL} 秒")
+    logfire.info("配置信息：")
+    logfire.info(
+        "  - API 地址: {host}:{port}",
+        host=Config.API_HOST,
+        port=Config.API_PORT,
+    )
+    logfire.info(
+        "  - 后端定时抓取间隔: {interval} 秒",
+        interval=Config.BACKEND_FETCH_INTERVAL,
+    )
     if Config.RATE_LIMIT_ENABLED:
-        logger.info(f"  - 接口限流: 已启用")
-        logger.info(f"    - 默认限流规则: {Config.RATE_LIMIT_DEFAULT}")
-        logger.info(f"    - /api/status 限流规则: {Config.RATE_LIMIT_STATUS}")
+        logfire.info("  - 接口限流: 已启用")
+        logfire.info("    - 默认限流规则: {default_rule}", default_rule=Config.RATE_LIMIT_DEFAULT)
+        logfire.info("    - /api/status 限流规则: {status_rule}", status_rule=Config.RATE_LIMIT_STATUS)
     else:
-        logger.info(f"  - 接口限流: 已禁用")
+        logfire.info("  - 接口限流: 已禁用")
 
     _sync_stations_from_providers(provider_manager)
 
     # 启动后台定时抓取任务
     asyncio.create_task(background_fetch_task())
-    logger.info(f"已启动后台定时抓取任务，间隔: {Config.BACKEND_FETCH_INTERVAL} 秒")
+    logfire.info(
+        "已启动后台定时抓取任务，间隔: {interval} 秒",
+        interval=Config.BACKEND_FETCH_INTERVAL,
+    )
 
-    logger.info("=" * 60)
+    logfire.info("{separator}", separator=separator)
 
 
 # 添加 CORS 支持（必须在路由之前）
@@ -226,13 +248,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-logger.info("CORS 中间件已配置")
+logfire.info("CORS 中间件已配置")
 
 # 注册钉钉路由
 app.include_router(ding_router)
-logger.info("钉钉路由已注册")
+logfire.info("钉钉路由已注册")
 
-logger.info("FastAPI 仅提供 API 路由；静态前端由独立托管服务提供")
+logfire.info("FastAPI 仅提供 API 路由；静态前端由独立托管服务提供")
 
 
 def _get_timestamp():
@@ -261,7 +283,7 @@ def aggregate_stations_by_id(stations: List[Dict[str, Any]]) -> List[Dict[str, A
     for station in stations:
         station_id = station.get("id") or station.get("hash_id")
         if not station_id:
-            logger.warning("跳过缺少 hash_id 的站点: %s", station)
+            logfire.warn("跳过缺少 hash_id 的站点: {station}", station=station)
             continue
 
         if station_id not in stations_by_id:
@@ -289,7 +311,7 @@ def _build_stations_from_latest_rows(
 
         metadata = metadata_map.get(station_id, {})
         if not metadata:
-            logger.debug("站点 %s 缺少 metadata，将返回最小字段", station_id)
+            logfire.debug("站点 {station_id} 缺少 metadata，将返回最小字段", station_id=station_id)
 
         station = {
             "hash_id": station_id,
@@ -337,7 +359,7 @@ def _max_updated_at(rows: List[Dict[str, Any]]) -> str:
             try:
                 timestamps.append(datetime.fromisoformat(value.replace("Z", "+00:00")))
             except ValueError:
-                logger.debug("无法解析站点 updated_at=%s，忽略", value)
+                logfire.debug("无法解析站点 updated_at={value}，忽略", value=value)
 
     if timestamps:
         return max(timestamps).isoformat()
@@ -419,7 +441,7 @@ async def api_info(request: Request):
 @apply_rate_limit(Config.RATE_LIMIT_DEFAULT)
 async def get_config(request: Request):
     """返回前端配置信息"""
-    logger.info("收到 /api/config 请求")
+    logfire.info("收到 /api/config 请求")
     return {"fetch_interval": Config.FETCH_INTERVAL}  # 前端自动刷新间隔（秒）
 
 
@@ -427,13 +449,13 @@ async def get_config(request: Request):
 @apply_rate_limit(Config.RATE_LIMIT_DEFAULT)
 async def get_providers(request: Request):
     """返回可用服务商列表"""
-    logger.info("收到 /api/providers 请求")
+    logfire.info("收到 /api/providers 请求")
     try:
         providers = provider_manager.list_providers()
-        logger.info(f"返回 {len(providers)} 个服务商")
+        logfire.info("返回 {provider_count} 个服务商", provider_count=len(providers))
         return providers
     except Exception as e:
-        logger.error(f"获取服务商列表失败: {str(e)}", exc_info=True)
+        logfire.error("获取服务商列表失败: {error}", error=str(e))
         raise HTTPException(status_code=500, detail=f"获取服务商列表失败: {str(e)}")
 
 
@@ -441,7 +463,7 @@ async def get_providers(request: Request):
 @apply_rate_limit(Config.RATE_LIMIT_DEFAULT)
 async def get_station_catalog(request: Request):
     """返回站点基础信息列表"""
-    logger.info("收到 /api/stations 请求")
+    logfire.info("收到 /api/stations 请求")
 
     try:
         rows = fetch_all_stations_data()
@@ -454,7 +476,7 @@ async def get_station_catalog(request: Request):
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error("查询 stations 表失败: %s", exc, exc_info=True)
+        logfire.error("查询 stations 表失败: {error}", error=str(exc))
         raise HTTPException(status_code=503, detail="站点信息不可用")
 
 
@@ -473,11 +495,11 @@ async def get_status(
         id: 可选，站点唯一标识，如果指定则只返回匹配的站点
     """
     station_id = hash_id
-    logger.info(
-        "收到 /api/status 请求，provider=%s, hash_id=%s, devid=%s",
-        provider,
-        station_id,
-        devid,
+    logfire.info(
+        "收到 /api/status 请求，provider={provider}, hash_id={station_id}, devid={devid}",
+        provider=provider,
+        station_id=station_id,
+        devid=devid,
     )
 
     if devid and not provider:
@@ -488,43 +510,43 @@ async def get_status(
             provider=provider, station_id=station_id, devid=devid
         )
         if cached_response is not None:
-            logger.info(
-                "使用 latest 缓存返回 %d 个站点",
-                len(cached_response.get("stations", [])),
+            logfire.info(
+                "使用 latest 缓存返回 {station_count} 个站点",
+                station_count=len(cached_response.get("stations", [])),
             )
             return cached_response
 
-        logger.info("缓存不存在或无效，开始实时抓取数据...")
+        logfire.info("缓存不存在或无效，开始实时抓取数据...")
         provider_filter = provider
         result = await provider_manager.fetch_and_format(provider=provider_filter)
 
         if result is None:
-            logger.error("数据抓取失败：返回 None")
+            logfire.error("数据抓取失败：返回 None")
             raise HTTPException(status_code=500, detail="数据抓取失败且无缓存数据")
 
         stations = result.get("stations", [])
-        logger.info(f"实时抓取成功，共 {len(stations)} 个站点")
+        logfire.info("实时抓取成功，共 {station_count} 个站点", station_count=len(stations))
 
         filtered = stations
         if station_id:
             filtered = [s for s in filtered if s.get("id") == station_id]
-            logger.info("按 hash_id 过滤后，共 %d 个站点", len(filtered))
+            logfire.info("按 hash_id 过滤后，共 {count} 个站点", count=len(filtered))
         elif provider and devid:
             filtered = [
                 s for s in filtered if _station_provider(s) == provider and _matches_devid(s, devid)
             ]
-            logger.info(
-                "按 provider+devid 过滤后，共 %d 个站点（provider=%s, devid=%s）",
-                len(filtered),
-                provider,
-                devid,
+            logfire.info(
+                "按 provider+devid 过滤后，共 {count} 个站点（provider={provider}, devid={devid}）",
+                count=len(filtered),
+                provider=provider,
+                devid=devid,
             )
         elif provider:
             filtered = [s for s in filtered if _station_provider(s) == provider]
-            logger.info("按 provider 过滤后，共 %d 个站点", len(filtered))
+            logfire.info("按 provider 过滤后，共 {count} 个站点", count=len(filtered))
         elif devid:
             filtered = [s for s in filtered if _matches_devid(s, devid)]
-            logger.info("按 devid 过滤后，共 %d 个站点", len(filtered))
+            logfire.info("按 devid 过滤后，共 {count} 个站点", count=len(filtered))
 
         if not filtered:
             return {
@@ -534,14 +556,14 @@ async def get_status(
 
         if not station_id:
             filtered = aggregate_stations_by_id(filtered)
-            logger.info("聚合后，共 %d 个站点", len(filtered))
+            logfire.info("聚合后，共 {count} 个站点", count=len(filtered))
 
         result["stations"] = filtered
         return result
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"查询失败: {str(e)}", exc_info=True)
+        logfire.error("查询失败: {error}", error=str(e))
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
 
@@ -568,13 +590,13 @@ async def background_fetch_task():
     fetch_interval = Config.BACKEND_FETCH_INTERVAL
 
     # 启动时先执行一次，确保有初始缓存（但需要检查时间）
-    logger.info("执行首次后台抓取任务，初始化缓存...")
+    logfire.info("执行首次后台抓取任务，初始化缓存...")
     if not is_night_time():
         try:
             result = await provider_manager.fetch_and_format()
 
             if result is None:
-                logger.error("首次后台抓取数据失败：返回 None")
+                logfire.error("首次后台抓取数据失败：返回 None")
             else:
                 stations = result.get("stations", [])
                 station_models = _station_models_from_result(stations)
@@ -582,13 +604,14 @@ async def background_fetch_task():
                 if station_models:
                     try:
                         if batch_upsert_stations(station_models):
-                            logger.info(
-                                f"首次后台抓取数据已同步站点基础信息，共 {len(station_models)} 条"
+                            logfire.info(
+                                "首次后台抓取数据已同步站点基础信息，共 {count} 条",
+                                count=len(station_models),
                             )
                         else:
-                            logger.warning("首次后台抓取数据同步站点基础信息失败")
+                            logfire.warn("首次后台抓取数据同步站点基础信息失败")
                     except Exception as exc:
-                        logger.error("首次后台抓取同步站点信息发生异常: %s", exc, exc_info=True)
+                        logfire.error("首次后台抓取同步站点信息发生异常: {error}", error=str(exc))
 
                 snapshot_time = result.get("updated_at", _get_timestamp())
                 if not snapshot_time:
@@ -597,17 +620,17 @@ async def background_fetch_task():
 
                 history_enabled = Config.SUPABASE_HISTORY_ENABLED
                 if record_usage_data(result, history_mode_enabled=history_enabled):
-                    logger.info(
-                        "首次后台抓取数据成功写入 Supabase（history=%s），共 %d 个站点",
-                        history_enabled,
-                        len(stations),
+                    logfire.info(
+                        "首次后台抓取数据成功写入 Supabase（history={history_enabled}），共 {station_count} 个站点",
+                        history_enabled=history_enabled,
+                        station_count=len(stations),
                     )
                 else:
-                    logger.error("首次后台抓取数据写入 Supabase 失败")
+                    logfire.error("首次后台抓取数据写入 Supabase 失败")
         except Exception as e:
-            logger.error(f"首次后台抓取任务发生异常: {str(e)}", exc_info=True)
+            logfire.error("首次后台抓取任务发生异常: {error}", error=str(e))
     else:
-        logger.info("当前处于夜间暂停时段（0:10-5:50），跳过首次抓取")
+        logfire.info("当前处于夜间暂停时段（0:10-5:50），跳过首次抓取")
 
     # 然后按间隔定时执行
     while True:
@@ -618,17 +641,21 @@ async def background_fetch_task():
             if is_night_time():
                 tz_utc_8 = timezone(timedelta(hours=8))
                 current_time_str = datetime.now(tz_utc_8).strftime("%H:%M")
-                logger.info(
-                    f"当前时间 {current_time_str} 处于夜间暂停时段（0:10-5:50），跳过本次抓取"
+                logfire.info(
+                    "当前时间 {current_time} 处于夜间暂停时段（0:10-5:50），跳过本次抓取",
+                    current_time=current_time_str,
                 )
                 continue
 
-            logger.info(f"开始后台定时抓取数据（间隔: {fetch_interval}秒）...")
+            logfire.info(
+                "开始后台定时抓取数据（间隔: {interval}秒）...",
+                interval=fetch_interval,
+            )
 
             result = await provider_manager.fetch_and_format()
 
             if result is None:
-                logger.error("后台抓取数据失败：返回 None")
+                logfire.error("后台抓取数据失败：返回 None")
                 continue
 
             stations = result.get("stations", [])
@@ -637,11 +664,14 @@ async def background_fetch_task():
             if station_models:
                 try:
                     if batch_upsert_stations(station_models):
-                        logger.info("后台抓取已同步 %d 条站点基础信息", len(station_models))
+                        logfire.info(
+                            "后台抓取已同步 {count} 条站点基础信息",
+                            count=len(station_models),
+                        )
                     else:
-                        logger.warning("后台抓取同步站点基础信息失败")
+                        logfire.warn("后台抓取同步站点基础信息失败")
                 except Exception as exc:
-                    logger.error("后台抓取同步站点基础信息异常: %s", exc, exc_info=True)
+                    logfire.error("后台抓取同步站点基础信息异常: {error}", error=str(exc))
 
             snapshot_time = result.get("updated_at", _get_timestamp())
             if not snapshot_time:
@@ -650,15 +680,15 @@ async def background_fetch_task():
 
             history_enabled = Config.SUPABASE_HISTORY_ENABLED
             if record_usage_data(result, history_mode_enabled=history_enabled):
-                logger.info(
-                    "后台抓取数据成功写入 Supabase（history=%s），共 %d 个站点",
-                    history_enabled,
-                    len(stations),
+                logfire.info(
+                    "后台抓取数据成功写入 Supabase（history={history_enabled}），共 {station_count} 个站点",
+                    history_enabled=history_enabled,
+                    station_count=len(stations),
                 )
             else:
-                logger.error("后台抓取数据写入 Supabase 失败")
+                logfire.error("后台抓取数据写入 Supabase 失败")
         except Exception as e:
-            logger.error(f"后台抓取任务发生异常: {str(e)}", exc_info=True)
+            logfire.error("后台抓取任务发生异常: {error}", error=str(e))
             # 发生异常时等待一段时间再继续，避免频繁重试
             await asyncio.sleep(60)
 
@@ -666,7 +696,11 @@ async def background_fetch_task():
 if __name__ == "__main__":
     import uvicorn
 
-    logger.info(f"启动服务器: {Config.API_HOST}:{Config.API_PORT}")
+    logfire.info(
+        "启动服务器: {host}:{port}",
+        host=Config.API_HOST,
+        port=Config.API_PORT,
+    )
     uvicorn.run(
         app,
         host=Config.API_HOST,

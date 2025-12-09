@@ -2,11 +2,14 @@
 
 """Supabase 客户端管理"""
 
-import logging
 from typing import Optional
+
+import logfire
 from supabase import create_client, Client
 
-logger = logging.getLogger(__name__)
+from server.logfire_setup import ensure_logfire_configured
+
+ensure_logfire_configured()
 
 _supabase_client: Optional[Client] = None
 _supabase_url: Optional[str] = None
@@ -22,12 +25,12 @@ def initialize_supabase_config(url: str, key: str):
     global _supabase_url, _supabase_key
 
     if not url or not key:
-        logger.error("Supabase URL 或 Key 为空，配置失败。")
+        logfire.error("Supabase URL 或 Key 为空，配置失败。")
         return
 
     _supabase_url = url
     _supabase_key = key
-    logger.info("Supabase 配置参数已设置。")
+    logfire.info("Supabase 配置参数已设置。")
 
 
 def get_supabase_client() -> Optional[Client]:
@@ -40,18 +43,16 @@ def get_supabase_client() -> Optional[Client]:
 
     # 2. 检查配置是否已通过 initialize_supabase_config 设置
     if not _supabase_url or not _supabase_key:
-        logger.warning(
-            "Supabase URL 或 Key 未设置。请先调用 initialize_supabase_config() 进行配置。"
-        )
+        logfire.warn("Supabase URL 或 Key 未设置。请先调用 initialize_supabase_config() 进行配置。")
         return None
 
     try:
         # 3. 创建 Supabase 客户端
         _supabase_client = create_client(_supabase_url, _supabase_key)
-        logger.info("Supabase 客户端初始化成功")
+        logfire.info("Supabase 客户端初始化成功")
         return _supabase_client
     except Exception as e:
-        logger.error(f"Supabase 客户端初始化失败: {str(e)}", exc_info=True)
+        logfire.error("Supabase 客户端初始化失败: {error}", error=str(e))
         return None
 
 
@@ -63,4 +64,4 @@ def reset_supabase_client():
     """
     global _supabase_client
     _supabase_client = None
-    logger.info("Supabase 客户端实例已重置（配置保持不变）")
+    logfire.info("Supabase 客户端实例已重置（配置保持不变）")

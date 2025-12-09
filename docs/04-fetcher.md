@@ -125,7 +125,7 @@ def _register_providers(self):
     your_provider = YourProvider()
     self.providers.append(your_provider)
 
-    logger.info(f"已注册服务商：{your_provider.provider}")
+    logfire.info(f"已注册服务商：{your_provider.provider}")
 ```
 
 ### 4. 更新站点数据
