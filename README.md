@@ -19,7 +19,8 @@ ZJU Charger 基于 FastAPI 开发，瞄准**校内充电桩不好找、供应商
 
 ## News
 
-- 2025.12.07 - 修复 [CVE-2025-55182](https://www.cve.org/CVERecord?id=CVE-2025-55182); 支持紫金创业园站点
+- 2025.12.11 - 网站累计访问用户突破 3000 人，感谢所有用户的使用与支持！
+- 2025.12.07 - 修复 [CVE-2025-55182](https://www.cve.org/CVERecord?id=CVE-2025-55182)；支持紫金创业园站点；支持望月社区站点
 - 2025.12.05 - 支持堕落街服务商，校准并支持西溪校区站点；最新介绍推文详见 [ZJU Charger:便捷高效的充电桩查询助手](https://mp.weixin.qq.com/s/fh2EriLV7aPlDiwghRCwzw)
 - 2025.12.02 - 重构前端 UI 并支持尼普顿智慧生活公众号查询
 - 2025.11.30 - GitHub 达到 50 Star，感谢支持！[校内公众号宣传贴](https://mp.weixin.qq.com/s/8tX1yHx_uvv64XQashPpTA)
@@ -49,6 +50,7 @@ Next.js 框架开发：App Router + TypeScript + shadcn/ui, 开源在 [Phil-Fan/
 - [x] 前端定时自动刷新。
 - [x] 夜间提示。
 - [x] 绿/橙/红三色编码空闲、紧张、故障状态。
+- [x] 英文界面支持。
 
 ### 后端功能
 
@@ -189,6 +191,7 @@ project/
 - 使用 [fastapi](https://fastapi.tiangolo.com/) 实现 API 服务；使用 [slowapi](https://github.com/sunhailin-dev/slowapi) 实现接口限流功能。
 - 使用 [supabase](https://supabase.com/) 实现数据库功能。
 - 使用 [Caddy](https://caddyserver.com/) 实现 HTTPS 证书与反向代理服务。
+- 使用 [Logfire](https://pydantic.dev/logfire) 实现日志收集与分析。
 
 ### 前端
 
@@ -198,7 +201,7 @@ project/
 - 使用 [Apple URL Scheme - Map Links](https://developer.apple.com/library/archive/featuredarticles/iPhoneURLScheme_Reference/MapLinks/MapLinks.html) 与 [高德地图手机版 API - 路径规划](https://lbs.amap.com/api/amap-mobile/guide/android/navigation) 实现地图跳转。
 - 使用 [shadcn/ui](https://ui.shadcn.com/) 实现组件库，使用 [tweakcn](https://tweakcn.com/editor/theme) 生成 Supabase 主题。
 - 使用 [Biome](https://biomejs.dev/) 实现代码检查与格式化。
-- 坐标转换由自定义 `geo` 工具实现（WGS84 ↔ GCJ02 ↔ BD09）。
+- 感谢 [wandergis/coordtransform](https://github.com/wandergis/coordtransform) 实现坐标转换（WGS84 ↔ GCJ02 ↔ BD09）。
 
 ### 其他
 
@@ -210,7 +213,8 @@ project/
 - 使用 [Star History](https://star-history.com/) 实现 star 历史统计。
 - 使用 [Google analytics](https://analytics.google.com/) 和 [Clarity](https://clarity.microsoft.com/) 实现网站访问统计与用户理解。
 - 使用 [Aliyun ECS](https://www.aliyun.com/product/ecs) 实现服务器部署，也使用了 [Vercel](https://vercel.com/) 与 [Cloudflare Pages](https://pages.cloudflare.com/) 实现静态网站部署。
-- 感谢 [Elliottt001](https://github.com/Elliottt001)、[Kolle](https://www.cc98.org/user/id/584395)、[且寄白鹿_](https://www.cc98.org/user/id/648756)、[HansWang](https://www.cc98.org/user/id/650562)、[jeno_ccc](https://www.cc98.org/user/id/781655)、小王子、红豆糕糕糕、木子霏、云兮归处、青雨、Geoay、小彦子穿花衣、帆 等用户对于站点坐标校准的帮助！
+- 感谢 [Elliottt001](https://github.com/Elliottt001)、[Kolle](https://www.cc98.org/user/id/584395)、[且寄白鹿_](https://www.cc98.org/user/id/648756)、[HansWang](https://www.cc98.org/user/id/650562)、[jeno_ccc](https://www.cc98.org/user/id/781655)、[粉红头鲨鱼](https://www.cc98.org/user/id/730812)、[Momentymmt](https://www.cc98.org/user/id/762758)、小王子、红豆糕糕糕、木子霏、云兮归处、青雨、Geoay、小彦子穿花衣、帆、Yyoloooo 等用户对于站点坐标校准的帮助！
+- 感谢[浙江大学学生法律援助中心](https://mp.weixin.qq.com/s/KccCwU2P7ECra-TuvO-aYA)！
 - 感谢各位用户对于项目功能的建议与反馈！
 
 感谢所有贡献者！
