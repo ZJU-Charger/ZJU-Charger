@@ -184,11 +184,6 @@ def _normalize_device_ids(value: Any) -> List[str]:
 async def startup_event():
     """服务器启动时执行的操作"""
     with logfire.span("执行启动流程"):
-        separator = "=" * 60
-        logfire.info("{separator}", separator=separator)
-        logfire.info("服务器启动中...")
-        logfire.info("{separator}", separator=separator)
-
         # 记录配置信息
         logfire.info("配置信息：")
         logfire.info(
