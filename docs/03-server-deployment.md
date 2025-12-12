@@ -31,7 +31,6 @@ API_HOST=0.0.0.0
 API_PORT=8000
 
 # 数据抓取配置
-FETCH_INTERVAL=60
 BACKEND_FETCH_INTERVAL=300
 
 # 限流配置
@@ -77,6 +76,8 @@ uv run python -m server.run_server --log-file logs/server.log
 # 设置日志级别
 uv run python run_server.py --log-level DEBUG
 ```
+
+无论选择哪种启动方式，`server.run_server` 都会先初始化 FastAPI 应用，然后在独立线程中启动 `BackgroundFetcher`。该任务会周期性调用 ProviderManager 抓取数据、写入 Supabase `stations/latest` 表，API 本身只负责读库，不再直接访问服务商 API。
 
 ## 生产环境部署
 
@@ -269,7 +270,6 @@ Docker 镜像已经内置在项目根目录下的 `Dockerfile` 中，适合希�
 
 - `DINGTALK_WEBHOOK`: 钉钉机器人 webhook 地址
 - `DINGTALK_SECRET`: 钉钉机器人签名密钥
-- `FETCH_INTERVAL`: 前端自动刷新间隔（秒，默认：60）
 - `BACKEND_FETCH_INTERVAL`: 后端定时抓取间隔（秒，默认：300）
 - `RATE_LIMIT_ENABLED`: 是否启用接口限流（默认：true）
 - `RATE_LIMIT_DEFAULT`: 默认限流规则（默认："60/hour"，即每小时 60 次）
@@ -305,7 +305,7 @@ Docker 镜像已经内置在项目根目录下的 `Dockerfile` 中，适合希�
 
 `/api/status` 提供三种访问模式，便于不同客户端定位站点：
 
-1. **Hash ID 查询**：`GET /api/status?hash_id=<hash_id>`，直接返回该唯一站点。
+1. **Hash ID 查询**：`GET /api/status?hash_id=<hash_id>`，其中 `<hash_id>` 必须是 8 位十六进制字符串（例如 `3e262917`）。
 2. **Provider + Devid**：`GET /api/status?provider=<provider>&devid=<devid>`，当只知道设备号时可定位站点（必须同时提供 `provider`）。
 3. **按服务商过滤**：`GET /api/status?provider=<provider>`，返回该服务商下的全部站点。
 
@@ -328,7 +328,7 @@ PROVIDER_NEPTUNE_API_URL=https://api.example.com
 
 ### 限流规则
 
-- **默认规则** (`RATE_LIMIT_DEFAULT`): `60/hour` - 适用于大部分 API 端点（`/api`, `/api/config`, `/api/providers`, `/ding/webhook`）
+- **默认规则** (`RATE_LIMIT_DEFAULT`): `60/hour` - 适用于大部分 API 端点（`/api`, `/api/providers`, `/ding/webhook`）
 - **`/api/status` 端点** (`RATE_LIMIT_STATUS`): `3/minute` - 更严格限制，允许前端 60 秒刷新 + 容错（手动刷新等）
 
 限流规则格式：`"数量/时间单位"`，支持的时间单位：

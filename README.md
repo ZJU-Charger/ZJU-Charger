@@ -56,7 +56,7 @@ Next.js 框架开发：App Router + TypeScript + shadcn/ui, 开源在 [Phil-Fan/
 
 - [x] FastAPI 统一 API 接口，使用 slowapi 实现接口限流功能
 - [x] 多服务商架构支持，可同时异步抓取多个服务商的充电桩数据（目前支持了尼普顿服务商）
-- [x] 后台定时抓取任务，自动更新缓存
+- [x] `BackgroundFetcher` 后台定时抓取任务，自动写入 Supabase 缓存
 - [x] Supabase 数据库支持，记录历史使用情况数据（可选）
 
 ### 快捷指令
@@ -96,11 +96,11 @@ flowchart TD
 
     B["Next.js Web App<br/>App Router"]
 
-    C["FastAPI API 服务"]
+    C["FastAPI API 服务<br/>(*只读 Supabase*)"]
 
     D["钉钉机器人<br/>全部"]
 
-    E["ProviderManager<br/>服务商管理器"]
+    H["Background Fetcher<br/>ProviderManager"]
 
     F1["NeptuneProvider<br/>尼普顿服务商"]
     F2["其他服务商<br/>可扩展..."]
@@ -115,17 +115,12 @@ flowchart TD
     D --> |webhook| C
 
     C --> |读取数据| G
-    E --> |管理| F1
-    E --> |管理| F2
-    F1 --> |实时抓取| E
-    F2 --> |实时抓取| E
-    
-    G <--> |写入缓存| E
+    H --> |写入缓存| G
+    H --> |调度| F1
+    H --> |调度| F2
 ```
 
-所有查询来源（React Web SPA、钉钉、GitHub Action）都调用统一 API 和 ProviderManager，逻辑完全不重复。
-
-前端通过 Vite 构建的 React + Apache ECharts-on-AMap 客户端消费这些 API，系统则保持多服务商架构以支持并发筛选。
+所有查询来源（Web、钉钉、脚本）只调用 FastAPI，从 Supabase 读取最近一次抓取的 `latest` 数据；后台抓取线程（`BackgroundFetcher`）在独立线程中运行 ProviderManager，异步刷新数据库缓存。前后端因此做到完全解耦，API 不再直连服务商。
 
 ### 项目结构
 

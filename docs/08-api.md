@@ -14,14 +14,6 @@
 curl http://127.0.0.1:8000/api
 ```
 
-## GET `/api/config`
-
-提供前端定时刷新等运行参数，目前仅返回 `fetch_interval`（单位：秒），前端会据此设置轮询频率。  
-
-```bash
-curl http://127.0.0.1:8000/api/config
-```
-
 ## GET `/api/providers`
 
 列出当前注册的服务商。响应格式为 `[{ "id": "neptune", "name": "neptune" }, ...]`，前端将这些 ID 用作筛选条件。  
@@ -59,11 +51,13 @@ curl http://127.0.0.1:8000/api/stations
 
 ## GET `/api/status`
 
-主查询接口，会优先读取 Supabase `latest` 缓存，失败时实时抓取。返回字段包括 `free/used/total/error` 以及 `devids/campus_name` 等。支持的查询参数：
+主查询接口，永远从 Supabase `latest` 表读取实时快照；后台抓取程序会异步刷新该表。返回字段包括 `free/used/total/error` 以及 `devids/campus_name` 等。支持的查询参数：
 
 - `provider`: 按服务商过滤（例如 `neptune`）。
-- `hash_id`: 返回指定站点。
+- `hash_id`: 返回指定站点，必须是 8 位十六进制字符串（如 `3e262917`）。
 - `devid`: 与 `provider` 同时使用，按设备号定位站点。
+
+如果携带任意过滤条件却查不到数据，API 会返回 `404 未找到匹配站点或设备`；只有在完全不带过滤参数时才可能收到 `"stale": true` 的内存快照。
 
 示例：
 
@@ -79,6 +73,22 @@ curl "http://127.0.0.1:8000/api/status?hash_id=3e262917"
 
 # 按 provider + devid 查询
 curl "http://127.0.0.1:8000/api/status?provider=neptune&devid=8120"
+
+# 错误示例：devid 不存在会返回 404
+curl -i "http://127.0.0.1:8000/api/status?provider=neptune&devid=bad_id"
+
+
+# 错误示例：携带 devid 但遗漏 provider（返回 400）
+curl -i "http://127.0.0.1:8000/api/status?devid=8120"
+
+# 错误示例：hash_id 长度不足 8（返回 422）
+curl -i "http://127.0.0.1:8000/api/status?hash_id=1234"
+
+# 错误示例：hash_id 含非法字符（返回 422）
+curl -i "http://127.0.0.1:8000/api/status?hash_id=../etc/passwd"
+
+# 错误示例：provider 含非法字符（返回 422）
+curl -i "http://127.0.0.1:8000/api/status?provider=../etc/passwd"
 ```
 
 ## DingTalk & 其他 Webhook

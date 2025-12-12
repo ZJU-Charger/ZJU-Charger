@@ -83,7 +83,7 @@ NEXT_PUBLIC_API_BASE=https://charger.philfan.cn
 - **Next.js + shadcn/ui**：使用 App Router、TypeScript 与 shadcn Supabase 主题构建 UI，所有组件位于 `frontend/src/components`。
 - **AMap + Apache ECharts**：依旧通过 `echarts-extension-amap` 渲染高德底图，标记颜色与旧版保持一致。
 - **站点列表与关注**：校区、服务商筛选、关注状态、主题偏好全部通过 hooks 与 `localStorage` 管理，多标签页实时同步。
-- **自动刷新**：读取 `/api/config` 的 `fetch_interval` 自动轮询（默认 60 秒），可手动点击 Header 的“刷新”按钮。
+- **自动刷新**：前端 `useAutoRefresh()` 直接使用默认 60 秒轮询，也可以在前端配置文件中覆盖该值，无需再请求 `/api/config`。
 - **实时定位与夜间提醒**：定位按钮现在使用 `watchPosition` 持续追踪并绘制用户位置（可手动停止），夜间提示依旧在 00:10–05:50 之间显示，顶部也保留校区空闲摘要。
 
 ### 使用技巧
@@ -138,15 +138,14 @@ NEXT_PUBLIC_API_BASE=https://charger.philfan.cn
 
 ## API 接口
 
-> 旧版 `/api/web` 接口已下线，所有客户端统一通过 `/api/status`、`/api/stations`、`/api/config` 等端点获取数据。
+> 旧版 `/api/web` 接口已下线，所有客户端统一通过 `/api/status`、`/api/stations`、`/api/providers` 获取数据，前端自行控制刷新频率。
 
 ### 基础接口
 
 - `GET /api/status` - 查询所有站点状态
   - 参数：`?provider=neptune` - 筛选特定服务商
-  - 参数：`?id=xxx` - 查询指定站点
+  - 参数：`?hash_id=xxxxxxxx` - 查询指定站点（`hash_id` 必须是 8 位十六进制字符串，如 `3e262917`）
 - `GET /api/providers` - 获取可用服务商列表
-- `GET /api/config` - 获取前端配置信息
 
 ### 使用示例
 
@@ -158,7 +157,7 @@ curl http://localhost:8000/api/status
 curl http://localhost:8000/api/status?provider=neptune
 
 # 查询指定站点
-curl http://localhost:8000/api/status?id=29e30f45
+curl http://localhost:8000/api/status?hash_id=29e30f45
 ```
 
 ## 常见问题

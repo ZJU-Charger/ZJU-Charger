@@ -25,12 +25,14 @@ error,integer,故障数量,stations[*].error,NOT NULL
 
 # db/usage_repo.py
 
-import logging
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+
+import logfire
+
+from server.logfire_setup import ensure_logfire_configured
 from .client import get_supabase_client
 
-logger = logging.getLogger(__name__)
+ensure_logfire_configured()
 
 LATEST_TABLE_NAME = "latest"
 USAGE_TABLE_NAME = "usage"
@@ -53,12 +55,12 @@ def insert(data: Dict[str, Any], sheet_name: str) -> bool:
 
     table_name = sheet_name.lower()
     if table_name not in [LATEST_TABLE_NAME, USAGE_TABLE_NAME]:
-        logger.error(f"无效的表名: {sheet_name}")
+        logfire.error("无效的表名: {sheet_name}", sheet_name=sheet_name)
         return False
 
     snapshot_time = data.get("snapshot_time") or data.get("updated_at")
     if not snapshot_time:
-        logger.error(f"插入 {table_name} 失败：缺少时间戳字段。")
+        logfire.error("插入 {table_name} 失败：缺少时间戳字段。", table_name=table_name)
         return False
 
     # 构建记录
@@ -72,7 +74,7 @@ def insert(data: Dict[str, Any], sheet_name: str) -> bool:
     }
 
     if not record["hash_id"]:
-        logger.warning("跳过单条插入：缺少 hash_id")
+        logfire.warn("跳过单条插入：缺少 hash_id")
         return False
 
     # 必要的 try-catch 块，用于处理数据库交互错误
@@ -86,11 +88,11 @@ def insert(data: Dict[str, Any], sheet_name: str) -> bool:
             # 针对 usage 表使用 insert (单条)
             client.table(table_name).insert([record], returning=DEFAULT_RETURNING).execute()
 
-        logger.debug(f"成功插入/更新 {table_name} 单条记录。")
+        logfire.debug("成功插入/更新 {table_name} 单条记录。", table_name=table_name)
         return True
 
     except Exception as e:
-        logger.error(f"执行单条数据库操作失败: {e}", exc_info=True)
+        logfire.error("执行单条数据库操作失败: {error}", error=str(e))
         return False
 
 
@@ -108,18 +110,18 @@ def batch_insert(data: Dict[str, Any], sheet_name: str) -> bool:
 
     table_name = sheet_name.lower()
     if table_name not in [LATEST_TABLE_NAME, USAGE_TABLE_NAME]:
-        logger.error(f"无效的表名: {sheet_name}")
+        logfire.error("无效的表名: {sheet_name}", sheet_name=sheet_name)
         return False
 
     stations = data.get("stations", [])
     snapshot_time = data.get("updated_at")
 
     if not snapshot_time:
-        logger.error(f"批量插入 {table_name} 失败：缺少 updated_at 字段。")
+        logfire.error("批量插入 {table_name} 失败：缺少 updated_at 字段。", table_name=table_name)
         return False
 
     if not stations:
-        logger.warning(f"站点列表为空，跳过批量插入 {table_name}。")
+        logfire.warn("站点列表为空，跳过批量插入 {table_name}。", table_name=table_name)
         return True
 
     usage_records = []
@@ -141,7 +143,7 @@ def batch_insert(data: Dict[str, Any], sheet_name: str) -> bool:
         )
 
     if not usage_records:
-        logger.warning(f"没有有效的使用情况记录可插入 {table_name} 表。")
+        logfire.warn("没有有效的使用情况记录可插入 {table_name} 表。", table_name=table_name)
         return True
 
     # 必要的 try-catch 块
@@ -158,11 +160,16 @@ def batch_insert(data: Dict[str, Any], sheet_name: str) -> bool:
             client.table(table_name).insert(usage_records, returning=DEFAULT_RETURNING).execute()
             action = "插入"
 
-        logger.info(f"成功批量 {action} {table_name} {len(usage_records)} 条记录。")
+        logfire.info(
+            "成功批量 {action} {table_name} {count} 条记录。",
+            action=action,
+            table_name=table_name,
+            count=len(usage_records),
+        )
         return True
 
     except Exception as e:
-        logger.error(f"批量数据库操作失败: {e}", exc_info=True)
+        logfire.error("批量数据库操作失败: {error}", error=str(e))
         return False
 
 
@@ -184,7 +191,7 @@ def load_latest() -> Optional[Dict[str, Any]]:
 
         rows: List[Dict[str, Any]] = response.data or []
         if not rows:
-            logger.warning("latest 表暂无缓存数据。")
+            logfire.warn("latest 表暂无缓存数据。")
             return None
 
         timestamps = [row.get("snapshot_time") for row in rows if row.get("snapshot_time")]
@@ -192,5 +199,5 @@ def load_latest() -> Optional[Dict[str, Any]]:
         return {"updated_at": latest_timestamp, "rows": rows}
 
     except Exception as exc:
-        logger.error(f"读取 latest 表失败: {exc}", exc_info=True)
+        logfire.error("读取 latest 表失败: {error}", error=str(exc))
         return None

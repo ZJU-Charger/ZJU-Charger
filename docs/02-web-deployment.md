@@ -7,7 +7,7 @@
 - **基础**：Next.js 16（App Router）+ TypeScript + pnpm 构建 SPA，Tailwind CSS + shadcn/ui（Supabase 主题）负责样式与交互组件。
 - **地图**：Apache ECharts 5 + `echarts-extension-amap`，统一使用高德地图底图，具备 geolocation 与截图能力。
 - **状态管理**：React Hooks + 定制 `useStations/useWatchlist/useRealtimeLocation` 等 hooks，将数据获取、轮询、主题、关注、定位 watch 等逻辑拆分成可复用模块。
-- **数据交互**：仍通过 `/api/status`、`/api/providers`、`/api/config`、`/api/stations` 获取实时/元数据，服务端实现保持不变。
+- **数据交互**：前端只调用 `/api/status`、`/api/providers`、`/api/stations`；这些端点直接读取 Supabase，实时数据由后台抓取任务写入，无需前端触发。
 - **部署模式**：前端可运行在 Node（`pnpm start`）、Vercel、Caddy 等环境，FastAPI 仅提供 API；通过 `NEXT_PUBLIC_API_BASE` 指定 API 根地址即可支持跨域请求。
 - **存储**：`localStorage` 保留主题、关注列表、定位偏好；`NEXT_PUBLIC_AMAP_KEY` 在 `.env.local` 中配置后由 Next.js 注入。
 
@@ -31,18 +31,17 @@ frontend/
 
 ## 数据流与 API
 
-> 旧版 `/api/web` 接口已移除，前端统一通过 `/api/status`、`/api/stations`、`/api/providers`、`/api/config` 等端点获取数据。
+> 旧版 `/api/web` 接口已移除，前端统一通过 `/api/status`、`/api/stations`、`/api/providers` 获取数据。
 
-1. **配置拉取**：`useConfig()` 在挂载后调用 `/api/config`，将 `fetch_interval`（秒）写入状态并驱动 `useAutoRefresh()`，失败时自动回退到 60 秒。
-2. **服务商清单**：`useProviders()` 请求 `/api/providers`，结果传入 Header 组件以渲染筛选下拉框。
-3. **站点状态**：`useStations()` 并行请求 `/api/status`（支持 `?provider=` 筛选）与 `/api/stations`，通过 `mergeStations()` 合并实时数据与元数据，保证未抓取站点也能显示在地图/列表，并标记 `isFetched=false`。
-4. **关注列表**：`useWatchlist()` 负责从 `localStorage` 解析/持久化 `{devids, devdescripts}`，并暴露 `isWatched()` 与 `toggleWatch()` 给列表组件使用。
-5. **限流提示**：当 API 返回 429 时抛出 `RateLimitError`，`useStations()` 捕获后设置 `rateLimited=true`，由 `RateLimitToast` 组件展示提示。
+1. **服务商清单**：`useProviders()` 请求 `/api/providers`，结果传入 Header 组件以渲染筛选下拉框。
+2. **站点状态**：`useStations()` 并行请求 `/api/status`（支持 `?provider=` 筛选）与 `/api/stations`，通过 `mergeStations()` 合并实时数据与元数据，保证未抓取站点也能显示在地图/列表，并标记 `isFetched=false`。
+3. **关注列表**：`useWatchlist()` 负责从 `localStorage` 解析/持久化 `{devids, devdescripts}`，并暴露 `isWatched()` 与 `toggleWatch()` 给列表组件使用。
+4. **限流提示**：当 API 返回 429 时抛出 `RateLimitError`，`useStations()` 捕获后设置 `rateLimited=true`，由 `RateLimitToast` 组件展示提示。
 
 ## 全局状态与本地存储
 
 - React 组件树以 `App` 为根，通过 `useState` 持有 `campusId`、`providerId` 等筛选条件。
-- `useStations()`（数据）、`useProviders()`（选项）、`useConfig()`（刷新频率）等 hooks 将 API 结果注入组件。
+- `useStations()`（数据）与 `useProviders()`（选项）等 hooks 将 API 结果注入组件；刷新频率在前端的 `useAutoRefresh()` 内部自定义，无需额外的配置接口。
 - `useWatchlist()`+`localStorage` 保存 `{devids, devdescripts, updated_at}`，支持多标签同步；`useTheme()` 负责 `THEME_STORAGE_KEY`。
 
 ## 地图渲染流程（`MapView`）
@@ -65,8 +64,7 @@ frontend/
 
 ## 自动刷新与提示机制
 
-- `useConfig()` 读取 `fetch_interval`，`useAutoRefresh()` 依据该值调用 `useStations().refresh()`。
-- 刷新频率完全由服务器环境变量 `FETCH_INTERVAL` + `/api/config` 控制，前端不再提供 `NEXT_PUBLIC_REFRESH_INTERVAL` 覆盖项。
+- `useAutoRefresh()` 内部维护 `DEFAULT_REFRESH_INTERVAL`（默认 60 秒），前端可以在配置文件中覆盖该值；它会定时调用 `useStations().refresh()`。
 - Header 中的“刷新”按钮直接触发 `refresh()`，并在 UI 上立刻进入 loading 状态。
 - `RateLimitToast` 根据 `rateLimited` 状态展示限流提示；其余错误在列表卡片中提示排查步骤。
 

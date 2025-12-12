@@ -3,15 +3,18 @@
 import aiohttp
 import asyncio
 import json
-import logging
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, List, Tuple
+
+import logfire
 
 # 假设这些类和函数已定义或可导入
 from .provider_base import ProviderBase
 from fetcher.station import Station
 
-logger = logging.getLogger(__name__)
+from server.logfire_setup import ensure_logfire_configured
+
+ensure_logfire_configured()
 
 # 确保 ClientSession 类型可用
 ClientSession = aiohttp.ClientSession
@@ -106,7 +109,10 @@ class NeptuneProvider(ProviderBase):
             portstatus = str(device_data.get("portstatur", ""))
 
             if not portstatus:
-                logger.warning("Device %s status data has no 'portstatur' string.", device_id)
+                logfire.warn(
+                    "Device {device_id} status data has no 'portstatur' string.",
+                    device_id=device_id,
+                )
                 continue
             # print(portstatus)
             free += portstatus.count("0")

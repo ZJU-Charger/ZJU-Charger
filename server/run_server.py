@@ -9,10 +9,13 @@
 """
 
 import argparse
-import logging
+
+import logfire
 import uvicorn
+
+from server.background_fetcher import BackgroundFetcher
+from server.logfire_setup import ensure_logfire_configured
 from .config import Config
-from .logging_config import setup_logging
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="启动 ZJU Charger API 服务器")
@@ -29,20 +32,29 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # 配置日志
-    log_level = getattr(logging, args.log_level.upper())
-    setup_logging(level=log_level, log_file=args.log_file)
-    logger = logging.getLogger(__name__)
+    ensure_logfire_configured()
+    separator = "=" * 60
 
-    logger.info("=" * 60)
-    logger.info("ZJU Charger API 服务器启动")
-    logger.info("=" * 60)
-    logger.info(f"服务器地址: http://{args.host}:{args.port}")
-    logger.info(f"API 文档: http://{args.host}:{args.port}/docs")
-    logger.info(f"前端页面: http://{args.host}:{args.port}/web/")
     if args.log_file:
-        logger.info(f"日志文件: {args.log_file}")
-    logger.info("=" * 60)
+        logfire.warn(
+            "logfire 日志目前不支持按文件输出，忽略 --log-file 参数",
+            log_file=args.log_file,
+        )
+    if args.log_level.upper() != "INFO":
+        logfire.warn(
+            "logfire 日志暂不支持按 CLI 设置日志级别，收到的参数: {log_level}",
+            log_level=args.log_level,
+        )
+
+    logfire.info("{separator}", separator=separator)
+    logfire.info("ZJU Charger API 服务器启动")
+    logfire.info("{separator}", separator=separator)
+    logfire.info("服务器地址: http://{host}:{port}", host=args.host, port=args.port)
+    logfire.info("API 文档: http://{host}:{port}/docs", host=args.host, port=args.port)
+    logfire.info("前端页面: http://{host}:{port}/web/", host=args.host, port=args.port)
+    logfire.info("{separator}", separator=separator)
+
+    BackgroundFetcher().start()
 
     uvicorn.run(
         "server.api:app",

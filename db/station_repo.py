@@ -16,13 +16,15 @@ updated_at,timestamptz,本条元数据最近一次更新时间,stations[*].updat
 
 # db/station_repo.py
 
-import logging
 from typing import List, Dict, Any, Optional
 
 # 移除对 Station 类的依赖
+import logfire
+
+from server.logfire_setup import ensure_logfire_configured
 from .client import get_supabase_client
 
-logger = logging.getLogger(__name__)
+ensure_logfire_configured()
 
 # --- Stations 表操作：CRUD/元数据管理 ---
 
@@ -50,7 +52,7 @@ def upsert_station(
         # 假设 station 对象有 hash_id, name, provider 等属性
         station_id = getattr(station, "hash_id", None)
         if not station_id:
-            logger.error("站点信息缺少 hash_id 字段")
+            logfire.error("站点信息缺少 hash_id 字段")
             return False
 
         station_data = {
@@ -67,10 +69,10 @@ def upsert_station(
 
         # 执行 upsert 操作
         client.table("stations").upsert(station_data).execute()
-        logger.debug(f"成功插入/更新站点: {station_id}")
+        logfire.debug("成功插入/更新站点: {station_id}", station_id=station_id)
         return True
     except Exception as e:
-        logger.error(f"插入/更新站点失败: {e}", exc_info=True)
+        logfire.error("插入/更新站点失败: {error}", error=str(e))
         return False
 
 
@@ -81,7 +83,7 @@ def batch_upsert_stations(stations: List[Any]) -> bool:  # 类型改为 List[Any
         return False
 
     if not stations:
-        logger.warning("站点列表为空，跳过批量插入")
+        logfire.warn("站点列表为空，跳过批量插入")
         return True
 
     try:
@@ -90,7 +92,10 @@ def batch_upsert_stations(stations: List[Any]) -> bool:  # 类型改为 List[Any
         for station in stations:
             station_id = getattr(station, "hash_id", None)
             if not station_id:
-                logger.warning(f"跳过缺少 hash_id 的站点: {getattr(station, 'name', 'unknown')}")
+                logfire.warn(
+                    "跳过缺少 hash_id 的站点: {station_name}",
+                    station_name=getattr(station, "name", "unknown"),
+                )
                 continue
 
             station_data = {
@@ -107,15 +112,18 @@ def batch_upsert_stations(stations: List[Any]) -> bool:  # 类型改为 List[Any
             station_data_list.append(station_data)
 
         if not station_data_list:
-            logger.warning("没有有效的站点数据可插入")
+            logfire.warn("没有有效的站点数据可插入")
             return True
 
         # 执行批量 upsert
         client.table("stations").upsert(station_data_list).execute()
-        logger.info(f"成功批量插入/更新 {len(station_data_list)} 个站点")
+        logfire.info(
+            "成功批量插入/更新 {count} 个站点",
+            count=len(station_data_list),
+        )
         return True
     except Exception as e:
-        logger.error(f"批量插入/更新站点失败: {e}", exc_info=True)
+        logfire.error("批量插入/更新站点失败: {error}", error=str(e))
         return False
 
 
@@ -150,7 +158,7 @@ def fetch_station_metadata(
                 metadata[station_id] = row
         return metadata
     except Exception as exc:
-        logger.error("读取站点基础信息失败: %s", exc, exc_info=True)
+        logfire.error("读取站点基础信息失败: {error}", error=str(exc))
         return {}
 
 
@@ -169,12 +177,36 @@ def fetch_all_stations_data(provider: Optional[str] = None) -> List[Dict[str, An
         # 调用底层接口获取 Dict[hash_id, Dict] 结构
         metadata_map = fetch_station_metadata(provider=provider)
         if not metadata_map:
-            logger.warning(f"未找到 provider='{provider}' 的站点信息。")
+            logfire.warn("未找到 provider='{provider}' 的站点信息。", provider=provider)
             return []
 
         # 转换为 List[Dict] 结构并返回
         return list(metadata_map.values())
 
     except Exception as exc:
-        logger.error("加载所有 Station 数据失败: %s", exc, exc_info=True)
+        logfire.error("加载所有 Station 数据失败: {error}", error=str(exc))
+        return []
+
+
+def fetch_distinct_providers() -> List[str]:
+    """返回 stations 表中的 provider 去重列表"""
+
+    client = get_supabase_client()
+    if client is None:
+        return []
+
+    try:
+        response = client.table("stations").select("provider").execute()
+        providers: List[str] = []
+        seen = set()
+        for row in response.data or []:
+            provider = row.get("provider")
+            if provider and provider not in seen:
+                seen.add(provider)
+                providers.append(provider)
+
+        providers.sort()
+        return providers
+    except Exception as exc:
+        logfire.error("读取 provider 列表失败: {error}", error=str(exc))
         return []
