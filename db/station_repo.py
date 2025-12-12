@@ -186,3 +186,27 @@ def fetch_all_stations_data(provider: Optional[str] = None) -> List[Dict[str, An
     except Exception as exc:
         logfire.error("加载所有 Station 数据失败: {error}", error=str(exc))
         return []
+
+
+def fetch_distinct_providers() -> List[str]:
+    """返回 stations 表中的 provider 去重列表"""
+
+    client = get_supabase_client()
+    if client is None:
+        return []
+
+    try:
+        response = client.table("stations").select("provider").execute()
+        providers: List[str] = []
+        seen = set()
+        for row in response.data or []:
+            provider = row.get("provider")
+            if provider and provider not in seen:
+                seen.add(provider)
+                providers.append(provider)
+
+        providers.sort()
+        return providers
+    except Exception as exc:
+        logfire.error("读取 provider 列表失败: {error}", error=str(exc))
+        return []

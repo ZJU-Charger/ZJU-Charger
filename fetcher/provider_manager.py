@@ -1,8 +1,8 @@
 """服务商管理器：管理所有充电桩服务商，提供统一接口"""
 
 import asyncio
-from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
+from typing import List, Dict, Any, Optional
 
 import aiohttp
 from fetcher.providers.provider_base import ProviderBase
@@ -15,6 +15,11 @@ import logfire
 from server.logfire_setup import ensure_logfire_configured
 
 ensure_logfire_configured()
+
+
+def _now_utc8_iso() -> str:
+    tz_utc_8 = timezone(timedelta(hours=8))
+    return datetime.now(tz_utc_8).isoformat()
 
 
 class ProviderManager:
@@ -152,13 +157,6 @@ class ProviderManager:
 
         return all_stations
 
-    # --- 时间戳和格式化方法 ---
-
-    def _get_timestamp(self) -> str:
-        """获取当前时间戳（UTC+8）"""
-        tz_utc_8 = timezone(timedelta(hours=8))
-        return datetime.now(tz_utc_8).isoformat()
-
     async def fetch_and_format(self, provider: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """获取数据并格式化为 API 响应格式"""
 
@@ -177,11 +175,11 @@ class ProviderManager:
                     return None
 
                 # 直接返回单个服务商的结果
-                return {"updated_at": self._get_timestamp(), "stations": stations}
+                return {"updated_at": _now_utc8_iso(), "stations": stations}
 
         # 获取所有服务商数据
         providers_data = await self.fetch_all_providers()
         stations = self.merge_stations(providers_data)
 
         # 即使 stations 为空列表，也应返回格式化的结构
-        return {"updated_at": self._get_timestamp(), "stations": stations}
+        return {"updated_at": _now_utc8_iso(), "stations": stations}

@@ -9,7 +9,7 @@ dependencies = [
     "dingtalkchatbot",
     "fastapi",
     "httpx[socks]",
-    "logfire[fastapi]>=4.16.0",
+    "logfire[fastapi,system-metrics]>=4.16.0",
     "python-dotenv",
     "slowapi",
     "supabase",

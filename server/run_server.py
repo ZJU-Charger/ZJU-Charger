@@ -13,6 +13,7 @@ import argparse
 import logfire
 import uvicorn
 
+from server.background_fetcher import BackgroundFetcher
 from server.logfire_setup import ensure_logfire_configured
 from .config import Config
 
@@ -52,6 +53,8 @@ if __name__ == "__main__":
     logfire.info("API 文档: http://{host}:{port}/docs", host=args.host, port=args.port)
     logfire.info("前端页面: http://{host}:{port}/web/", host=args.host, port=args.port)
     logfire.info("{separator}", separator=separator)
+
+    BackgroundFetcher().start()
 
     uvicorn.run(
         "server.api:app",

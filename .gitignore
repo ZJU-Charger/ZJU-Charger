@@ -35,3 +35,4 @@ reports/*
 *.egg-info/
 .venv/*
 test.*
+.logfire/*

@@ -18,6 +18,7 @@ from .station_repo import (
     batch_upsert_stations,
     fetch_station_metadata,
     fetch_all_stations_data,  # 低耦合查询接口，返回 List[Dict]
+    fetch_distinct_providers,
 )
 
 # --- 2. 使用数据仓库 (usage, latest 表) ---
@@ -41,6 +42,7 @@ __all__ = [
     "batch_upsert_stations",
     "fetch_station_metadata",
     "fetch_all_stations_data",
+    "fetch_distinct_providers",
     # usage_repo
     "insert",
     "batch_insert",
