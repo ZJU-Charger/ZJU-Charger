@@ -199,7 +199,7 @@ class BackgroundFetcher:
             station.get("updated_at")
             or station.get("snapshot_time")
             or station.get("updatedAt")
-            or now_utc8_iso()
+            or _now_utc8_iso()
         )
 
         try:
