@@ -19,6 +19,6 @@
 
 ## 🔗 相关链接
 
-- [项目主 README](../README.md)
+- [项目主 README](https://github.com/Phil-Fan/ZJU-Charger#readme)
 - [GitHub 仓库](https://github.com/Phil-Fan/ZJU-Charger)
 - [问题反馈](https://github.com/Phil-Fan/ZJU-Charger/issues)
