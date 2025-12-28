@@ -92,3 +92,8 @@ exclude = [
 [build-system]
 requires = ["setuptools>=67"]
 build-backend = "setuptools.build_meta"
+
+[tool.logfire]
+project_name = "zju-charger"
+console_colors = "auto"
+service_name = "zju-charger"

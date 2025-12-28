@@ -84,6 +84,7 @@ Next.js 框架开发：App Router + TypeScript + shadcn/ui, 开源在 [Phil-Fan/
 - [Script 快捷指令文档](./docs/06-script-shortcuts.md) - iOS 快捷指令使用指南
 - [Supabase 数据库架构](./docs/07-supabase-schema.md) - Supabase 数据库表结构和使用说明
 - [API 参考](./docs/08-api.md) - 后端 REST API 描述与示例
+- [Logfire Dashboard 指南](./docs/09-logfire-dashboard.md) - 如何启用/自定义 Logfire 监控看板
 
 ### 系统架构
 

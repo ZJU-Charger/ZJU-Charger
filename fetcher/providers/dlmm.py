@@ -114,7 +114,9 @@ class DlmmProvider(ProviderBase):
 
         for station, (status, exc) in zip(self.station_list, results):
             if exc or status is None:
-                logfire.warn("DLMM station {station_name} failed, fallback zeros", station_name=station.name)
+                logfire.warn(
+                    "DLMM station {station_name} failed, fallback zeros", station_name=station.name
+                )
                 final_list.append(
                     {
                         "provider": self.provider,

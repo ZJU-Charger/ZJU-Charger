@@ -192,9 +192,7 @@ class BackgroundFetcher:
         )
 
         campus_id = self._coerce_int(station.get("campus_id"))
-        device_ids = self._normalize_device_ids(
-            station.get("device_ids") or station.get("devids")
-        )
+        device_ids = self._normalize_device_ids(station.get("device_ids") or station.get("devids"))
         updated_at = (
             station.get("updated_at")
             or station.get("snapshot_time")

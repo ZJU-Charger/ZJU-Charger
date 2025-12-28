@@ -1,4 +1,5 @@
 # Python
+charger-craw/*
 __pycache__/
 
 *.py[cod]
@@ -27,8 +28,7 @@ Thumbs.db
 .env*
 .pytest_cache/
 .ruff_cache/*
-AGENTS.md
-openspec/*
+
 data/*
 reports/*
 .uv-cache/
@@ -36,3 +36,13 @@ reports/*
 .venv/*
 test.*
 .logfire/*
+
+# AI
+.spec-workflow/*
+AGENTS.md
+openspec/*
+
+# Node.js
+node_modules/
+package-lock.json
+.vitepress

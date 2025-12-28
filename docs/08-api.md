@@ -93,6 +93,8 @@ curl -i "http://127.0.0.1:8000/api/status?provider=../etc/passwd"
 
 ## DingTalk & 其他 Webhook
 
+> **⚠️ 注意**：钉钉机器人功能暂未启用。
+
 项目暴露了 `/ding/webhook` 等钉钉机器人接口，具体签名、事件与示例请参考 [docs/05-dingbot.md](./05-dingbot.md)。
 
 ---

@@ -22,9 +22,9 @@ uv sync --frozen
 创建 `.env` 文件：
 
 ```shell
-# 钉钉机器人配置（可选）
-DINGTALK_WEBHOOK=https://oapi.dingtalk.com/robot/send?access_token=xxx
-DINGTALK_SECRET=your_secret_here
+# 钉钉机器人配置（可选，暂未启用）
+# DINGTALK_WEBHOOK=https://oapi.dingtalk.com/robot/send?access_token=xxx
+# DINGTALK_SECRET=your_secret_here
 
 # API 服务器配置
 API_HOST=0.0.0.0
@@ -268,8 +268,8 @@ Docker 镜像已经内置在项目根目录下的 `Dockerfile` 中，适合希�
 
 ### 可选配置
 
-- `DINGTALK_WEBHOOK`: 钉钉机器人 webhook 地址
-- `DINGTALK_SECRET`: 钉钉机器人签名密钥
+- `DINGTALK_WEBHOOK`: 钉钉机器人 webhook 地址（功能暂未启用）
+- `DINGTALK_SECRET`: 钉钉机器人签名密钥（功能暂未启用）
 - `BACKEND_FETCH_INTERVAL`: 后端定时抓取间隔（秒，默认：300）
 - `RATE_LIMIT_ENABLED`: 是否启用接口限流（默认：true）
 - `RATE_LIMIT_DEFAULT`: 默认限流规则（默认："60/hour"，即每小时 60 次）

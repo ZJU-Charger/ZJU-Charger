@@ -1,0 +1,14 @@
+{
+  "name": "charger-backend-docs",
+  "version": "1.0.0",
+  "description": "ZJU Charger Backend Documentation",
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev docs --base /",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs --base /"
+  },
+  "devDependencies": {
+    "vitepress": "^1.0.0"
+  }
+}

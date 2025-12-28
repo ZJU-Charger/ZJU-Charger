@@ -47,6 +47,7 @@ def now_utc8_iso() -> str:
     tz_utc_8 = timezone(timedelta(hours=8))
     return datetime.now(tz_utc_8).isoformat()
 
+
 # logfire captures structured logs/traces for observability before other startup tasks
 logfire.instrument_fastapi(app)
 logfire.info("Initializing FastAPI application", name="world")
@@ -121,6 +122,7 @@ class ApiCallTelemetry:
         attributes.update(self.metric_attributes)
         api_request_counter.add(1, attributes)
         api_latency_histogram.record(duration_ms, attributes)
+
 
 if Config.SUPABASE_URL and Config.SUPABASE_KEY:
     initialize_supabase_config(Config.SUPABASE_URL, Config.SUPABASE_KEY)
@@ -228,7 +230,6 @@ logfire.info("钉钉路由已注册")
 logfire.info("FastAPI 仅提供 API 路由；静态前端由独立托管服务提供")
 
 
-
 def _build_stations_from_latest_rows(
     rows: List[Dict[str, Any]],
     *,
@@ -243,7 +244,6 @@ def _build_stations_from_latest_rows(
     station_ids = [row.get("hash_id") for row in rows if row.get("hash_id")]
     metadata_map = fetch_station_metadata(station_ids, provider=provider)
 
-    stations = []
     seen_ids: Dict[str, Dict[str, Any]] = {}
     for row in rows:
         station_id = row.get("hash_id")
@@ -340,6 +340,7 @@ def _get_fallback_status_response() -> Optional[Tuple[Dict[str, Any], str]]:
     payload = dict(_last_status_snapshot["payload"])
     payload["stale"] = True
     return payload, (_last_status_filter_mode or "all")
+
 
 def _build_cached_response(
     *,
@@ -570,6 +571,7 @@ async def get_status(
             telemetry.set_status_code(500)
             logfire.error("查询失败: {error}", error=str(e))
             raise HTTPException(status_code=500, detail="查询站点失败")
+
 
 if __name__ == "__main__":
     import uvicorn
