@@ -202,14 +202,15 @@ project/
 ### 其他
 
 - 特别鸣谢 [@qychen2001](https://github.com/qychen2001) 对项目的大力支持！
-- 使用 [minima](https://github.com/jekyll/minima) 主题生成项目文档。
+- 使用 [vuejs/vitepress](https://github.com/vuejs/vitepress) 主题生成项目文档。
 - 使用 [huacnlee/autocorrect](https://github.com/huacnlee/autocorrect/), [DavidAnson/markdownlint-cli2-action](https://github.com/DavidAnson/markdownlint-cli2-action) 与 [gaurav-nelson/github-action-markdown-link-check](https://github.com/gaurav-nelson/github-action-markdown-link-check) 对 Markdown 文档进行自动化检查。
-- 使用 [uv](https://docs.astral.sh/uv/) 管理 Python 依赖，并以 [Ruff](https://docs.astral.sh/ruff/) 统一完成格式化与 Lint（CI 通过 [astral-sh/ruff-action](https://github.com/astral-sh/ruff-action) 并行执行 `ruff format --check` 与 `ruff check`）。
+- 使用 [uv](https://docs.astral.sh/uv/) 管理 Python 依赖，并以 [Ruff](https://docs.astral.sh/ruff/)&[astral-sh/ruff-action](https://github.com/astral-sh/ruff-action) 完成格式化。
 - 使用 [jitter.video](https://jitter.video/templates) 实现 GIF 动画。
 - 使用 [Star History](https://star-history.com/) 实现 star 历史统计。
 - 使用 [Google analytics](https://analytics.google.com/) 和 [Clarity](https://clarity.microsoft.com/) 实现网站访问统计与用户理解。
 - 使用 [Aliyun ECS](https://www.aliyun.com/product/ecs) 实现服务器部署，也使用了 [Vercel](https://vercel.com/) 与 [Cloudflare Pages](https://pages.cloudflare.com/) 实现静态网站部署。
 - 感谢 [Elliottt001](https://github.com/Elliottt001)、[Kolle](https://www.cc98.org/user/id/584395)、[且寄白鹿_](https://www.cc98.org/user/id/648756)、[HansWang](https://www.cc98.org/user/id/650562)、[jeno_ccc](https://www.cc98.org/user/id/781655)、[粉红头鲨鱼](https://www.cc98.org/user/id/730812)、[Momentymmt](https://www.cc98.org/user/id/762758)、小王子、红豆糕糕糕、木子霏、云兮归处、青雨、Geoay、小彦子穿花衣、帆、Yyoloooo 等用户对于站点坐标校准的帮助！
+- 感谢 SQTP 团队「校园充电桩使用现状可视化分析与优化设计」对于紫金港校区站点位置的校准帮助！
 - 感谢[浙江大学学生法律援助中心](https://mp.weixin.qq.com/s/KccCwU2P7ECra-TuvO-aYA)！
 - 感谢各位用户对于项目功能的建议与反馈！
 
