@@ -25,10 +25,6 @@ class NeptuneJuniorProvider(ProviderBase):
         return "neptune_junior"
 
     async def ensure_token(self, session: aiohttp.ClientSession):
-        """如果 token 为空 → 请求一次"""
-        if self.token:
-            return self.token
-
         url = (
             f"https://gateway.hzxwwl.com/api/auth/wx/mp?openid={self.openid}&unionid={self.unionid}"
         )
