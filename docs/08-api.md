@@ -1,6 +1,6 @@
 # API 参考指南
 
-- [Swagger UI](https://charger.philfan.cn/docs)  
+- [Swagger UI](https://charger.philfan.cn/docs)
 - [ReDoc](https://charger.philfan.cn/redoc)
 
 > 注意：旧版 `/api/web` 接口已淘汰，统一使用本文列出的 REST 端点。
@@ -16,7 +16,7 @@ curl http://127.0.0.1:8000/api
 
 ## GET `/api/providers`
 
-列出当前注册的服务商。响应格式为 `[{ "id": "neptune", "name": "neptune" }, ...]`，前端将这些 ID 用作筛选条件。  
+列出当前注册的服务商。响应格式为 `[{ "id": "neptune", "name": "neptune" }, ...]`，前端将这些 ID 用作筛选条件。
 
 ```bash
 curl http://127.0.0.1:8000/api/providers
@@ -24,7 +24,7 @@ curl http://127.0.0.1:8000/api/providers
 
 ## GET `/api/stations`
 
-返回站点基础信息（元数据），包含 `hash_id/name/provider/campus/坐标/device_ids` 等字段，用于在实时数据缺失时补全列表。  
+返回站点基础信息（元数据），包含 `hash_id/name/provider/campus/坐标/device_ids` 等字段，用于在实时数据缺失时补全列表。
 
 ```bash
 curl http://127.0.0.1:8000/api/stations

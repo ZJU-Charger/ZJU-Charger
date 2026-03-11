@@ -1,9 +1,9 @@
 ---
 name: 站点错误
 about: 指出站点错误信息
-title: '[STATION] '
+title: "[STATION] "
 labels: station
-assignees: ''
+assignees: ""
 ---
 
 ## 站点错误

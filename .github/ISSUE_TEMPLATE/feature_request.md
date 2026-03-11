@@ -1,9 +1,9 @@
 ---
 name: 功能请求
 about: 为这个项目提出一个想法
-title: '[FEATURE] '
+title: "[FEATURE] "
 labels: enhancement
-assignees: ''
+assignees: ""
 ---
 
 ## 功能描述

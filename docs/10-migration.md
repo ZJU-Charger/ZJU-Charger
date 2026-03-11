@@ -84,6 +84,7 @@ uv run python -m server.run_server
 ```
 
 首次启动时，系统会：
+
 1. 创建 `data` 目录（如果不存在）
 2. 创建 `data/charger.db` 数据库文件（如果不存在）
 3. 根据 `db/schema.sql` 初始化表结构（`stations`、`latest`、`usage`）
@@ -257,10 +258,12 @@ sqlite3 data/charger.db "SELECT COUNT(*) FROM usage;"
 ### 备份策略
 
 **Supabase 时代**：
+
 - 云端自动备份
 - 可通过 Dashboard 手动备份
 
 **SQLite 时代**：
+
 - 需要手动备份文件
 - 建议设置定时任务自动备份
 
@@ -285,6 +288,7 @@ sqlite3 data/charger.db "SELECT COUNT(*) FROM usage;"
 **原因**：SQLite 数据库未正确初始化或数据未迁移成功。
 
 **解决**：
+
 1. 检查 `data/charger.db` 文件是否存在
 2. 查看服务器日志获取详细错误信息
 3. 确认数据库表结构已正确创建
@@ -294,6 +298,7 @@ sqlite3 data/charger.db "SELECT COUNT(*) FROM usage;"
 **原因**：`migrate_to_sqlite.py` 脚本未运行或执行失败。
 
 **解决**：
+
 1. 检查 Supabase 凭证是否有效
 2. 确认网络连接正常
 3. 查看脚本输出的错误信息
@@ -303,6 +308,7 @@ sqlite3 data/charger.db "SELECT COUNT(*) FROM usage;"
 **原因**：`usage` 表数据量过大导致查询变慢。
 
 **解决**：
+
 1. 设置 `HISTORY_ENABLED=false` 停止记录历史数据
 2. 定期清理旧历史数据
 3. 考虑使用 SQLite 的 `VACUUM` 命令压缩数据库

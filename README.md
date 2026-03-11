@@ -35,18 +35,18 @@ ZJU Charger 基于 FastAPI 开发，瞄准**校内充电桩不好找、供应商
 Next.js 框架开发：App Router + TypeScript + shadcn/ui, 开源在 [Phil-Fan/zju-charger-frontend](https://github.com/Phil-Fan/zju-charger-frontend) 这个仓库。
 
 - [x] 校区切换：点击校区卡片切换校区，不同校区信息一键查询。
-  ![campus_01](assets/campus_01.png)
-  ![campus_02](assets/campus_02.png)
-  ![campus_03](assets/campus_03.png)
+      ![campus_01](assets/campus_01.png)
+      ![campus_02](assets/campus_02.png)
+      ![campus_03](assets/campus_03.png)
 - [x] 站点排序：开启定位后，实时显示站点距离，可按照距离优先或者空闲数量优先对站点进行排序。
-  ![sort](assets/sort.png)
+      ![sort](assets/sort.png)
 - [x] 站点导航：长按或双击地图站点可选择导航，一键跳转到高德/系统地图 APP，找到充电桩不再困难。
-  ![navigate](assets/navigate.png)
+      ![navigate](assets/navigate.png)
 - [x] 站点关注：常去某站点？点击星标关注站点，显示并保存在列表最上方。通过 localStorage 实现。
-  ![watchlist](assets/watchlist.png)
+      ![watchlist](assets/watchlist.png)
 - [x] 明暗切换：点击右上角按钮切换颜色模式，明暗样式任你选择。
-  ![light](assets/web_light.png)
-  ![dark](assets/web_dark.png)
+      ![light](assets/web_light.png)
+      ![dark](assets/web_dark.png)
 - [x] 前端定时自动刷新。
 - [x] 夜间提示。
 - [x] 绿/橙/红三色编码空闲、紧张、故障状态。
@@ -211,7 +211,7 @@ project/
 - 使用 [Star History](https://star-history.com/) 实现 star 历史统计。
 - 使用 [Google analytics](https://analytics.google.com/) 和 [Clarity](https://clarity.microsoft.com/) 实现网站访问统计与用户理解。
 - 使用 [Aliyun ECS](https://www.aliyun.com/product/ecs) 实现服务器部署，也使用了 [Vercel](https://vercel.com/) 与 [Cloudflare Pages](https://pages.cloudflare.com/) 实现静态网站部署。
-- 感谢 [Elliottt001](https://github.com/Elliottt001)、[Kolle](https://www.cc98.org/user/id/584395)、[且寄白鹿_](https://www.cc98.org/user/id/648756)、[HansWang](https://www.cc98.org/user/id/650562)、[jeno_ccc](https://www.cc98.org/user/id/781655)、[粉红头鲨鱼](https://www.cc98.org/user/id/730812)、[Momentymmt](https://www.cc98.org/user/id/762758)、小王子、红豆糕糕糕、木子霏、云兮归处、青雨、Geoay、小彦子穿花衣、帆、Yyoloooo 等用户对于站点坐标校准的帮助！
+- 感谢 [Elliottt001](https://github.com/Elliottt001)、[Kolle](https://www.cc98.org/user/id/584395)、[且寄白鹿\_](https://www.cc98.org/user/id/648756)、[HansWang](https://www.cc98.org/user/id/650562)、[jeno_ccc](https://www.cc98.org/user/id/781655)、[粉红头鲨鱼](https://www.cc98.org/user/id/730812)、[Momentymmt](https://www.cc98.org/user/id/762758)、小王子、红豆糕糕糕、木子霏、云兮归处、青雨、Geoay、小彦子穿花衣、帆、Yyoloooo 等用户对于站点坐标校准的帮助！
 - 感谢 SQTP 团队「校园充电桩使用现状可视化分析与优化设计」对于紫金港校区站点位置的校准帮助！
 - 感谢[浙江大学学生法律援助中心](https://mp.weixin.qq.com/s/KccCwU2P7ECra-TuvO-aYA)！
 - 感谢各位用户对于项目功能的建议与反馈！

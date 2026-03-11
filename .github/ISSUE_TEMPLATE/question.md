@@ -1,9 +1,9 @@
 ---
 name: 问题咨询
 about: 有问题需要咨询
-title: '[QUESTION] '
+title: "[QUESTION] "
 labels: question
-assignees: ''
+assignees: ""
 ---
 
 ## 问题描述
@@ -13,6 +13,7 @@ assignees: ''
 ## 相关文档
 
 <!-- 您已经查看过的相关文档 -->
+
 - [ ] [快速开始](../docs/01-快速开始.md)
 - [ ] [Web 介绍与部署](../docs/02-web介绍与部署.md)
 - [ ] [Server 端部署](../docs/03-server端部署.md)

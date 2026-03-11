@@ -5,9 +5,9 @@ on:
     branches:
       - main
     paths:
-      - 'docs/**'
-      - 'package.json'
-      - '.github/workflows/deploy-docs.yml'
+      - "docs/**"
+      - "package.json"
+      - ".github/workflows/deploy-docs.yml"
 
   workflow_dispatch:
 
@@ -35,8 +35,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version: "20"
+          cache: "pnpm"
 
       - name: 安装依赖
         run: pnpm install

@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional, Tuple
 
 from pathlib import Path
 
-from fetcher.station import Station, load_stations_from_csv
+from fetcher.station import Station, load_stations_from_csv, load_stations_from_db
 
 import aiohttp
 

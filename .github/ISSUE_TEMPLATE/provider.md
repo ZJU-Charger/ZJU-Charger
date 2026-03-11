@@ -1,9 +1,9 @@
 ---
 name: 新增供应商
 about: 为这个项目新增一个供应商
-title: '[PROVIDER] '
+title: "[PROVIDER] "
 labels: provider
-assignees: ''
+assignees: ""
 ---
 
 ## 必填

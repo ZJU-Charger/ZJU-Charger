@@ -40,6 +40,7 @@ def check_sqlite_available() -> bool:
     """检查 SQLite3 是否可用"""
     try:
         import sqlite3
+
         # 测试创建一个临时数据库
         conn = sqlite3.connect(":memory:")
         conn.execute("SELECT 1")
@@ -66,7 +67,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--skip-db-check",
         action="store_true",
-        help="跳过数据库检查（适用于数据库已在外部初始化的情况）"
+        help="跳过数据库检查（适用于数据库已在外部初始化的情况）",
     )
 
     args = parser.parse_args()

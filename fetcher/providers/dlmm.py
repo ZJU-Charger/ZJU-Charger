@@ -35,7 +35,7 @@ class DlmmProvider(ProviderBase):
         Placeholder for generating the auth token via login or another API.
         The current implementation relies on the DLMM_AUTH environment variable.
         """
-        return Config.get_provider_config_value("dlmm", "token", "")
+        return Config.get_provider_config_value("dlmm", "token", "") or ""
 
     # --- ProviderBase abstract method implementations ---
     async def fetch_station_list(
@@ -45,7 +45,7 @@ class DlmmProvider(ProviderBase):
         return None
 
     async def fetch_device_status(
-        self, session: aiohttp.ClientSession, device_id: str
+        self, station: Station, device_id: str, session: aiohttp.ClientSession
     ) -> Tuple[Optional[Dict[str, Any]], Optional[Exception]]:
         payload = {"stationNo": f"{device_id}"}
         url = "https://dlmmplususer.dianlvmama.com/dlServer/dlmm/getStation"
@@ -83,7 +83,10 @@ class DlmmProvider(ProviderBase):
         if not station.device_ids:
             return {"total": 0, "free": 0, "used": 0, "error": 0}, None
 
-        tasks = [self.fetch_device_status(session, device_id) for device_id in station.device_ids]
+        tasks = [
+            self.fetch_device_status(station, device_id, session)
+            for device_id in station.device_ids
+        ]
         results = await asyncio.gather(*tasks)
 
         total = free = used = error = 0

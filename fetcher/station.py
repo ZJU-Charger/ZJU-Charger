@@ -10,7 +10,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Iterable, List
+from typing import Any, Dict, Iterable, List
 
 # 校园 ID 映射，定义在外部，作为常量
 CAMPUS_NAME_MAP = {1: "玉泉校区", 2: "紫金港校区", 3: "华家池校区", 4: "西溪校区", 5: "之江校区"}
@@ -136,21 +136,28 @@ def _data_to_station(data: Dict[str, Any]) -> Station:
     )
 
     # 2. 构造 Station 实例 (尽量使用 dataclass 的构造函数)
-    return Station(
+    station = Station(
         name=data["name"],  # 假设 DB 确保非空
         provider=data["provider"],
         campus_id=data["campus_id"],
         # 可选参数
         campus_name=data.get("campus_name", ""),
-        lat=data.get("lat", 30.0),
-        lon=data.get("lon", 120.0),
+        lat=data.get("lat", 30.0) or 30.0,
+        lon=data.get("lon", 120.0) or 120.0,
         # 注意：device_ids 需处理 None 或其他类型
         device_ids=list(data.get("device_ids") or []),
-        # 传入 hash_id 和 updated_at 以覆盖默认值/post_init
-        hash_id=data.get("hash_id"),
-        updated_at=data.get("updated_at"),
         usage=usage,
     )
+
+    # 3. 如果数据库中有 hash_id，则覆盖计算值
+    if data.get("hash_id"):
+        station.hash_id = data.get("hash_id")
+
+    # 4. 如果数据库中有 updated_at，则覆盖默认值
+    if data.get("updated_at"):
+        station.updated_at = data.get("updated_at")
+
+    return station
 
 
 def load_stations_from_db(provider: str) -> List[Station]:
@@ -171,6 +178,8 @@ def load_stations_from_db(provider: str) -> List[Station]:
     print(f"尝试从数据库加载 provider='{provider}' 的站点数据...")
 
     # 1. 调用 DB 层接口，获取 List[Dict] (如果失败，异常将抛出)
+    from db import fetch_all_stations_data
+
     station_data_list = fetch_all_stations_data(provider=provider)
 
     if not station_data_list:

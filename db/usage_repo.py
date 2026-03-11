@@ -161,9 +161,7 @@ def batch_insert(data: Dict[str, Any], sheet_name: str) -> bool:
     try:
         # 针对 latest 表使用 upsert，针对 usage 表使用 insert
         if table_name == LATEST_TABLE_NAME:
-            result = execute_batch_upsert(
-                table_name, usage_records, conflict_column="hash_id"
-            )
+            result = execute_batch_upsert(table_name, usage_records, conflict_column="hash_id")
             action = "更新/插入"
         else:
             conn = get_db_client()
@@ -212,14 +210,14 @@ def load_latest() -> Optional[Dict[str, Any]]:
             FROM latest
         """
 
-        rows: List[Dict[str, Any]] = execute_query(query)
-        if not rows:
+        result = execute_query(query)
+        if not isinstance(result, list) or not result:
             logfire.warn("latest 表暂无缓存数据。")
             return None
 
-        timestamps = [row.get("snapshot_time") for row in rows if row.get("snapshot_time")]
+        timestamps = [row.get("snapshot_time") for row in result if row.get("snapshot_time")]
         latest_timestamp = max(timestamps) if timestamps else None
-        return {"updated_at": latest_timestamp, "rows": rows}
+        return {"updated_at": latest_timestamp, "rows": result}
 
     except Exception as exc:
         logfire.error("读取 latest 表失败: {error}", error=str(exc))

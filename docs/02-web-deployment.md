@@ -100,6 +100,7 @@ Next.js + shadcn 仍保持组件化拆分，部署方式（Node/Vercel/自托管
     ```
 
   - 若前后端同域部署，可省略 `NEXT_PUBLIC_API_BASE`，客户端会直接请求 `/api/*`。
+
 - `pnpm dev` 用于本地调试；`pnpm build && pnpm start` 可验证生产输出，随后按需部署（Vercel、自建 Node/Caddy 等）。
 
 ### Vercel 部署
@@ -127,5 +128,6 @@ Cloudflare Pages 可以使用 Next.js 的“适配器”模式，也可以简单
    ```
 
    然后在 Pages 中把 Build command 改为 `pnpm run cf:build`，output 目录使用 `.vercel/output/static`。
+
 4. 同样在 Pages 项目设置里添加 `NEXT_PUBLIC_AMAP_KEY`、`NEXT_PUBLIC_API_BASE` 环境变量。
 5. Cloudflare 默认开启缓存，如需最新数据可在 Workers/Pages Rules 中为 `/api/*` 路径禁用缓存。

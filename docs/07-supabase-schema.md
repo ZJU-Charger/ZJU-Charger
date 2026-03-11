@@ -38,14 +38,14 @@ CREATE INDEX IF NOT EXISTS idx_latest_station ON latest(hash_id);
 
 #### 字段说明
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `hash_id` | TEXT | 站点唯一标识，与 `stations.hash_id`、`usage.hash_id` 一致 |
-| `snapshot_time` | TIMESTAMPTZ | 最近一次抓取完成时间 |
-| `free` | INTEGER | 可用充电桩数量 |
-| `used` | INTEGER | 已用充电桩数量 |
-| `total` | INTEGER | 总充电桩数量 |
-| `error` | INTEGER | 故障充电桩数量 |
+| 字段            | 类型        | 说明                                                      |
+| --------------- | ----------- | --------------------------------------------------------- |
+| `hash_id`       | TEXT        | 站点唯一标识，与 `stations.hash_id`、`usage.hash_id` 一致 |
+| `snapshot_time` | TIMESTAMPTZ | 最近一次抓取完成时间                                      |
+| `free`          | INTEGER     | 可用充电桩数量                                            |
+| `used`          | INTEGER     | 已用充电桩数量                                            |
+| `total`         | INTEGER     | 总充电桩数量                                              |
+| `error`         | INTEGER     | 故障充电桩数量                                            |
 
 ### 2. `stations` 表（站点基础信息）
 
@@ -73,18 +73,18 @@ CREATE INDEX IF NOT EXISTS idx_stations_campus ON stations(campus_id);
 
 #### stations 表字段说明
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `hash_id` | TEXT | 站点唯一标识，`md5(provider:name)` |
-| `name` | TEXT | 站点名称 |
-| `provider` | TEXT | 服务商标识（如 `neptune`） |
-| `campus_id` | INTEGER | 校区 ID（如 1=玉泉，2=紫金港） |
-| `campus_name` | TEXT | 校区名称（可选） |
-| `lat` | NUMERIC(10,6) | 纬度 |
-| `lon` | NUMERIC(10,6) | 经度 |
-| `device_ids` | JSONB | 与站点关联的 `device_ids` 列表（用于 provider+devid 查询） |
-| `created_at` | TIMESTAMPTZ | 创建时间 |
-| `updated_at` | TIMESTAMPTZ | 更新时间 |
+| 字段          | 类型          | 说明                                                       |
+| ------------- | ------------- | ---------------------------------------------------------- |
+| `hash_id`     | TEXT          | 站点唯一标识，`md5(provider:name)`                         |
+| `name`        | TEXT          | 站点名称                                                   |
+| `provider`    | TEXT          | 服务商标识（如 `neptune`）                                 |
+| `campus_id`   | INTEGER       | 校区 ID（如 1=玉泉，2=紫金港）                             |
+| `campus_name` | TEXT          | 校区名称（可选）                                           |
+| `lat`         | NUMERIC(10,6) | 纬度                                                       |
+| `lon`         | NUMERIC(10,6) | 经度                                                       |
+| `device_ids`  | JSONB         | 与站点关联的 `device_ids` 列表（用于 provider+devid 查询） |
+| `created_at`  | TIMESTAMPTZ   | 创建时间                                                   |
+| `updated_at`  | TIMESTAMPTZ   | 更新时间                                                   |
 
 ### 3. `usage` 表（使用情况历史快照）
 
@@ -111,15 +111,15 @@ CREATE INDEX IF NOT EXISTS idx_usage_time ON usage(snapshot_time DESC);
 
 #### usage 表字段说明
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `id` | BIGSERIAL | 主键，自增 |
-| `hash_id` | TEXT | 站点唯一标识（外键 → `stations.hash_id`） |
-| `snapshot_time` | TIMESTAMPTZ | 抓取时间（UTC+8） |
-| `free` | INTEGER | 可用充电桩数量 |
-| `used` | INTEGER | 已使用充电桩数量 |
-| `total` | INTEGER | 总充电桩数量 |
-| `error` | INTEGER | 故障充电桩数量 |
+| 字段            | 类型        | 说明                                      |
+| --------------- | ----------- | ----------------------------------------- |
+| `id`            | BIGSERIAL   | 主键，自增                                |
+| `hash_id`       | TEXT        | 站点唯一标识（外键 → `stations.hash_id`） |
+| `snapshot_time` | TIMESTAMPTZ | 抓取时间（UTC+8）                         |
+| `free`          | INTEGER     | 可用充电桩数量                            |
+| `used`          | INTEGER     | 已使用充电桩数量                          |
+| `total`         | INTEGER     | 总充电桩数量                              |
+| `error`         | INTEGER     | 故障充电桩数量                            |
 
 ## 索引说明
 
@@ -180,7 +180,7 @@ ORDER BY hash_id, snapshot_time DESC;
 ### 统计某个站点的平均使用率
 
 ```sql
-SELECT 
+SELECT
     hash_id,
     AVG(used::numeric / NULLIF(total, 0)) * 100 AS avg_usage_rate
 FROM usage

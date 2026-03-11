@@ -2,9 +2,9 @@ name: Markdown Quality Check
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   contents: read
@@ -21,11 +21,11 @@ jobs:
       - name: Markdown Lint
         uses: DavidAnson/markdownlint-cli2-action@v20
         with:
-          config: '.github/.markdownlint.json'
+          config: ".github/.markdownlint.json"
           globs: |
             docs/*.md
             *.md
-      
+
       # - name: Markdown Link Check
       #   uses: gaurav-nelson/github-action-markdown-link-check@v1
       #   with:

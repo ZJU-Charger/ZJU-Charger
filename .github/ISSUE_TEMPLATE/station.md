@@ -1,9 +1,9 @@
 ---
 name: 新增站点
 about: 新增站点信息
-title: '[STATION] '
+title: "[STATION] "
 labels: station
-assignees: ''
+assignees: ""
 ---
 
 ## 新增站点

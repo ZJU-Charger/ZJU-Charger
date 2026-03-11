@@ -43,7 +43,7 @@ class NeptuneJuniorProvider(ProviderBase):
         return None
 
     async def fetch_device_status(
-        self, device_id: str, session: aiohttp.ClientSession
+        self, station: Station, device_id: str, session: aiohttp.ClientSession
     ) -> Tuple[Optional[Dict[str, Any]], Optional[Exception]]:
         try:
             await self.ensure_token(session)
@@ -78,7 +78,10 @@ class NeptuneJuniorProvider(ProviderBase):
     async def fetch_station_status(
         self, station: Station, session: aiohttp.ClientSession
     ) -> Tuple[Optional[Dict[str, Any]], Optional[Exception]]:
-        tasks = [self.fetch_device_status(device_id, session) for device_id in station.device_ids]
+        tasks = [
+            self.fetch_device_status(station, device_id, session)
+            for device_id in station.device_ids
+        ]
         results = await asyncio.gather(*tasks)
 
         total = free = used = error = booking = 0

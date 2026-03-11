@@ -134,35 +134,32 @@ def fetch_station_metadata(
         return {}
 
     try:
-        filters = {}
-        if station_ids:
-            filters["hash_id"] = station_ids
-        if provider:
-            filters["provider"] = provider
-
-        # 构建查询
-        where_clause = ""
+        where_parts = []
         params = []
-        if filters:
-            conditions = []
-            for key, value in filters.items():
-                if isinstance(value, list):
-                    placeholders = ",".join(["?" for _ in value])
-                    conditions.append(f"{key} IN ({placeholders})")
-                    params.extend(value)
-                else:
-                    conditions.append(f"{key} = ?")
-                    params.append(value)
-            where_clause = " WHERE " + " AND ".join(conditions)
+
+        if station_ids:
+            placeholders = ",".join(["?" for _ in station_ids])
+            where_parts.append(f"hash_id IN ({placeholders})")
+            params.extend(station_ids)
+        if provider:
+            where_parts.append("provider = ?")
+            params.append(provider)
+
+        where_clause = ""
+        if where_parts:
+            where_clause = " WHERE " + " AND ".join(where_parts)
 
         query = f"""
             SELECT hash_id, name, provider, campus_id, campus_name, lat, lon, device_ids, updated_at
             FROM stations{where_clause}
         """
 
-        rows = execute_query(query, params if params else None)
+        result = execute_query(query, params if params else None)
+        if not isinstance(result, list):
+            return {}
+
         metadata = {}
-        for row in rows:
+        for row in result:
             station_id = row.get("hash_id")
             if station_id:
                 metadata[station_id] = row
@@ -206,8 +203,11 @@ def fetch_distinct_providers() -> List[str]:
 
     try:
         query = "SELECT DISTINCT provider FROM stations ORDER BY provider"
-        rows = execute_query(query)
-        providers: List[str] = [row.get("provider") for row in rows if row.get("provider")]
+        result = execute_query(query)
+        if not isinstance(result, list):
+            return []
+
+        providers: List[str] = [row.get("provider") for row in result if row.get("provider")]
         return providers
     except Exception as exc:
         logfire.error("读取 provider 列表失败: {error}", error=str(exc))

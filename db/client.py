@@ -60,13 +60,13 @@ def initialize_db_config(db_path: Optional[str] = None) -> bool:
         # 读取并执行 schema.sql
         schema_path = Path(__file__).parent / "schema.sql"
         if schema_path.exists():
-            with open(schema_path, "r", encoding="utf-8") as f:
+            with open(schema_path) as f:
                 schema_sql = f.read()
             conn.executescript(schema_sql)
             conn.commit()
             logfire.info("数据库结构初始化成功")
         else:
-            logfire.warn("未找到 schema.sql 文件，跳过表结构初始化")
+            logfire.warn("未找到 schema.sql 文件，跳过表结构初始��")
 
         return True
     except Exception as e:
@@ -112,6 +112,7 @@ def reset_db_client():
 
 # 辅助函数：处理 JSON 字段（device_ids）
 
+
 def _json_to_sqlite(value: Any) -> str:
     """将 Python 对象转换为 SQLite 存储的 JSON 字符串"""
     if isinstance(value, str):
@@ -132,6 +133,7 @@ def _sqlite_to_json(value: Any) -> Any:
 
 
 # 辅助函数：构建查询条件
+
 
 def _build_where_clause(filters: Dict[str, Any]) -> tuple[str, List[Any]]:
     """
@@ -164,11 +166,10 @@ def _build_where_clause(filters: Dict[str, Any]) -> tuple[str, List[Any]]:
 
 # 执行查询的辅助函数
 
+
 def execute_query(
-    query: str,
-    params: Optional[List[Any]] = None,
-    fetch: str = "all"
-) -> List[Dict[str, Any]]:
+    query: str, params: Optional[List[Any]] = None, fetch: str = "all"
+) -> List[Dict[str, Any]] | Dict[str, Any] | None:
     """
     执行查询并返回结果
 
@@ -178,11 +179,11 @@ def execute_query(
         fetch: "all", "one", 或 None（不获取结果）
 
     Returns:
-        查询结果列表
+        fetch="all" 时返回 List[Dict]，fetch="one" 时返回 Dict 或 None
     """
     conn = get_db_client()
     if conn is None:
-        return []
+        return [] if fetch == "all" else None
 
     try:
         cursor = conn.cursor()
@@ -197,13 +198,10 @@ def execute_query(
         return []
     except Exception as e:
         logfire.error("查询执行失败: {error}, query: {query}", error=str(e), query=query)
-        return []
+        return [] if fetch == "all" else None
 
 
-def execute_update(
-    query: str,
-    params: Optional[List[Any]] = None
-) -> bool:
+def execute_update(query: str, params: Optional[List[Any]] = None) -> bool:
     """
     执行更新/插入/删除操作
 
@@ -229,11 +227,7 @@ def execute_update(
         return False
 
 
-def execute_upsert(
-    table: str,
-    data: Dict[str, Any],
-    conflict_column: str = "hash_id"
-) -> bool:
+def execute_upsert(table: str, data: Dict[str, Any], conflict_column: str = "hash_id") -> bool:
     """
     执行 UPSERT 操作（SQLite 的 INSERT OR REPLACE）
 
@@ -266,7 +260,7 @@ def execute_upsert(
             INSERT INTO {table} ({column_names})
             VALUES ({placeholders})
             ON CONFLICT({conflict_column}) DO UPDATE SET
-                {', '.join([f'{col}=excluded.{col}' for col in columns if col != conflict_column])}
+                {", ".join([f"{col}=excluded.{col}" for col in columns if col != conflict_column])}
         """
 
         cursor = conn.cursor()
@@ -280,9 +274,7 @@ def execute_upsert(
 
 
 def execute_batch_upsert(
-    table: str,
-    data_list: List[Dict[str, Any]],
-    conflict_column: str = "hash_id"
+    table: str, data_list: List[Dict[str, Any]], conflict_column: str = "hash_id"
 ) -> bool:
     """
     批量执行 UPSERT 操作
@@ -322,7 +314,7 @@ def execute_batch_upsert(
             INSERT INTO {table} ({column_names})
             VALUES ({placeholders})
             ON CONFLICT({conflict_column}) DO UPDATE SET
-                {', '.join([f'{col}=excluded.{col}' for col in columns if col != conflict_column])}
+                {", ".join([f"{col}=excluded.{col}" for col in columns if col != conflict_column])}
         """
 
         cursor = conn.cursor()

@@ -6,6 +6,7 @@ import base64
 import urllib.parse
 from fastapi import APIRouter, Request, HTTPException, Header
 from pydantic import BaseModel
+from typing import Optional
 import sys
 from pathlib import Path
 
@@ -36,8 +37,8 @@ class DingMessage(BaseModel):
     """钉钉消息模型"""
 
     msgtype: str
-    text: dict = None
-    msgId: str = None
+    text: Optional[dict] = None
+    msgId: Optional[str] = None
 
 
 def verify_signature(timestamp, sign, secret):
@@ -71,8 +72,8 @@ def apply_rate_limit(limit_str: str):
 @apply_rate_limit(Config.RATE_LIMIT_DEFAULT)
 async def ding_webhook(
     request: Request,
-    timestamp: str = Header(None, alias="timestamp"),
-    sign: str = Header(None, alias="sign"),
+    timestamp: Optional[str] = Header(default=None, alias="timestamp"),
+    sign: Optional[str] = Header(default=None, alias="sign"),
 ):
     """接收钉钉 webhook 请求"""
     return await _ding_webhook_impl(request, timestamp, sign)
@@ -80,8 +81,8 @@ async def ding_webhook(
 
 async def _ding_webhook_impl(
     request: Request,
-    timestamp: str = None,
-    sign: str = None,
+    timestamp: Optional[str] = None,
+    sign: Optional[str] = None,
 ):
     """钉钉 webhook 实现逻辑"""
     # 验证签名

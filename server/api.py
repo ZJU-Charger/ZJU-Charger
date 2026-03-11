@@ -8,6 +8,7 @@ from typing import List, Optional, Dict, Any, Tuple
 import json
 import sys
 from pathlib import Path
+from contextlib import asynccontextmanager
 from time import perf_counter
 
 # 导入 slowapi 限流相关模块
@@ -37,7 +38,45 @@ PROVIDER_PATTERN = r"^[A-Za-z0-9_-]+$"
 HASH_ID_PATTERN = r"^[0-9a-fA-F]{8}$"
 DEVID_PATTERN = r"^[A-Za-z0-9_, -]+$"
 
-app = FastAPI(title="ZJU Charger API", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理"""
+    # 启动时执行
+    with logfire.span("执行启动流程"):
+        # 记录配置信息
+        logfire.info("配置信息：")
+        logfire.info(
+            "  - API 地址: {host}:{port}",
+            host=Config.API_HOST,
+            port=Config.API_PORT,
+        )
+        logfire.info(
+            "  - 后端定时抓取间隔: {interval} 秒",
+            interval=Config.BACKEND_FETCH_INTERVAL,
+        )
+        if Config.RATE_LIMIT_ENABLED:
+            logfire.info("  - 接口限流: 已启用")
+            logfire.info(
+                "    - 默认限流规则: {default_rule}",
+                default_rule=Config.RATE_LIMIT_DEFAULT,
+            )
+            logfire.info(
+                "    - /api/status 限流规则: {status_rule}",
+                status_rule=Config.RATE_LIMIT_STATUS,
+            )
+        else:
+            logfire.info("  - 接口限流: 已禁用")
+
+        logfire.info("后台抓取任务由 run_server 启动并独立运行")
+
+    yield
+
+    # 关闭时执行（如果需要）
+    pass
+
+
+app = FastAPI(title="ZJU Charger API", version="1.0.0", lifespan=lifespan)
 
 _last_status_snapshot: Optional[Dict[str, Any]] = None
 _last_status_filter_mode: Optional[str] = None
@@ -93,7 +132,7 @@ class ApiCallTelemetry:
         self._start = perf_counter()
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(self, exc_type, exc, tb) -> None:
         duration_ms = (perf_counter() - self._start) * 1000
         status_code = self._explicit_status_code or 200
         if exc_type is not None:
@@ -103,7 +142,7 @@ class ApiCallTelemetry:
                 status_code = 500
 
         self._record_metrics(status_code, duration_ms)
-        return self._span_cm.__exit__(exc_type, exc, tb)
+        self._span_cm.__exit__(exc_type, exc, tb)
 
     def add_metric_attributes(self, **attrs: Any) -> None:
         for key, value in attrs.items():
@@ -138,7 +177,16 @@ if Config.RATE_LIMIT_ENABLED:
     limiter = Limiter(key_func=get_remote_address)
     # 注册限流异常处理器
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    # 创建类型兼容的异常处理器包装器
+    from starlette.responses import Response
+
+    async def rate_limit_handler(request: Request, exc: Exception) -> Response:
+        if isinstance(exc, RateLimitExceeded):
+            return _rate_limit_exceeded_handler(request, exc)
+        raise exc
+
+    app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
     logfire.info(
         "slowapi 限流器已初始化（使用内存存储），默认规则: {default_rule}，/api/status 规则: {status_rule}",
         default_rule=Config.RATE_LIMIT_DEFAULT,
@@ -182,37 +230,6 @@ def _normalize_device_ids(value: Any) -> List[str]:
         return [str(stripped)]
 
     return [str(value)]
-
-
-@app.on_event("startup")
-async def startup_event():
-    """服务器启动时执行的操作"""
-    with logfire.span("执行启动流程"):
-        # 记录配置信息
-        logfire.info("配置信息：")
-        logfire.info(
-            "  - API 地址: {host}:{port}",
-            host=Config.API_HOST,
-            port=Config.API_PORT,
-        )
-        logfire.info(
-            "  - 后端定时抓取间隔: {interval} 秒",
-            interval=Config.BACKEND_FETCH_INTERVAL,
-        )
-        if Config.RATE_LIMIT_ENABLED:
-            logfire.info("  - 接口限流: 已启用")
-            logfire.info(
-                "    - 默认限流规则: {default_rule}",
-                default_rule=Config.RATE_LIMIT_DEFAULT,
-            )
-            logfire.info(
-                "    - /api/status 限流规则: {status_rule}",
-                status_rule=Config.RATE_LIMIT_STATUS,
-            )
-        else:
-            logfire.info("  - 接口限流: 已禁用")
-
-        logfire.info("后台抓取任务由 run_server 启动并独立运行")
 
 
 # 添加 CORS 支持（必须在路由之前）

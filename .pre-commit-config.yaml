@@ -1,0 +1,22 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.10
+    hooks:
+      - id: ruff-check
+        name: backend · lint
+      - id: ruff-format
+        name: backend · format
+
+  - repo: https://github.com/facebook/pyrefly-pre-commit
+    rev: 0.47.0
+    hooks:
+      - id: pyrefly-check
+        name: backend · typecheck
+        pass_filenames: true
+        language: system
+
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.7.4
+    hooks:
+      - id: prettier
+        name: format

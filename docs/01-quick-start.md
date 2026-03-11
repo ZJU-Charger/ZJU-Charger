@@ -8,55 +8,55 @@
 
 1. 克隆仓库
 
-    ```bash
-    git clone https://github.com/Phil-Fan/zju-charger-frontend.git
-    ```
+   ```bash
+   git clone https://github.com/Phil-Fan/zju-charger-frontend.git
+   ```
 
 2. 安装 pnpm
 
-    ```bash
-    npm install -g pnpm
-    ```
+   ```bash
+   npm install -g pnpm
+   ```
 
 3. 安装依赖
 
-    ```bash
-    pnpm install
-    ```
+   ```bash
+   pnpm install
+   ```
 
 4. 创建 `.env.local` 文件
 
-    ```bash
-    touch .env.local
-    echo "NEXT_PUBLIC_AMAP_KEY=你的高德 JSKey" >> .env.local
-    echo "NEXT_PUBLIC_API_BASE=http://localhost:8000" >> .env.local
-    ```
+   ```bash
+   touch .env.local
+   echo "NEXT_PUBLIC_AMAP_KEY=你的高德 JSKey" >> .env.local
+   echo "NEXT_PUBLIC_API_BASE=http://localhost:8000" >> .env.local
+   ```
 
 5. 启动开发服务器
 
-    ```bash
-    pnpm dev
-    ```
+   ```bash
+   pnpm dev
+   ```
 
 ### 构建与部署
 
 1. 安装 pm2
 
-    ```bash
-    npm install -g pm2
-    ```
+   ```bash
+   npm install -g pm2
+   ```
 
 2. 构建
 
-    ```bash
-    pnpm build
-    ```
+   ```bash
+   pnpm build
+   ```
 
 3. 启动
 
-    ```bash
-    pm2 start pnpm --name frontend -- start --port 3000
-    ```
+   ```bash
+   pm2 start pnpm --name frontend -- start --port 3000
+   ```
 
 ### 本地开发
 

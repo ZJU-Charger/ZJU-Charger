@@ -45,9 +45,10 @@ class ElseProvider(ProviderBase):
         if station.provider == "万充科技":
             url = f"https://websocket.wanzhuangkj.com/query?company_id=29&device_num={device_id}"
             try:
+                headers = {"authorization": self.wanchong_token} if self.wanchong_token else {}
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
-                        url, headers={"authorization": self.wanchong_token}, timeout=5
+                        url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)
                     ) as resp:
                         resp.raise_for_status()
                         data = await resp.json(content_type=None)
@@ -85,7 +86,11 @@ class ElseProvider(ProviderBase):
             return {"total": 0, "free": 0, "used": 0, "error": 0}, None
         elif station.provider == "电动车充电网":
             url = "https://app.letfungo.com/api/cabinet/getSiteDetail2"
-            params = {"siteId": device_id, "token": self.letfungo_token}
+            params = {
+                k: v
+                for k, v in {"siteId": device_id, "token": self.letfungo_token}.items()
+                if v is not None
+            }
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.post(url, params=params) as resp:
@@ -102,6 +107,8 @@ class ElseProvider(ProviderBase):
                 "Content-Type": "application/json",
                 "token": self.opentool_token,
             }
+            # 过滤掉 None 值
+            headers = {k: v for k, v in headers.items() if v is not None}
             data = {
                 "sn": f"GD1B{device_id}",
                 "_sn": f"GD1B{device_id}",
@@ -130,10 +137,11 @@ class ElseProvider(ProviderBase):
         elif station.provider == "威可迪换电":
             url = "https://gateway.wkdsz.com/ce-battery-account/app/cabinetDevice/getCabinetDeviceDoorById"
             try:
+                headers = {"header-secretkey": self.wkd_token} if self.wkd_token else {}
+                # 过滤掉 None 值
+                headers = {k: v for k, v in headers.items() if v is not None}
                 async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        url, headers={"header-secretkey": self.wkd_token}, json={"id": device_id}
-                    ) as resp:
+                    async with session.post(url, headers=headers, json={"id": device_id}) as resp:
                         result = await resp.json()
                 doors = (
                     result.get("data", {})

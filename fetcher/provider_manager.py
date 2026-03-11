@@ -83,26 +83,26 @@ class ProviderManager:
         """初始化所有服务商：加载其对应的 CSV 站点数据。"""
         logfire.info("开始初始化并加载所有服务商的站点数据...")
 
-        load_tasks = [prov.load_stations() for prov in self.providers]
-        results = await asyncio.gather(*load_tasks, return_exceptions=True)
-
-        for prov, result in zip(self.providers, results):
-            if isinstance(result, Exception):
+        # load_stations 是同步方法，直接调用
+        for prov in self.providers:
+            try:
+                result = prov.load_stations()
+                if result is not None:
+                    logfire.info(
+                        "服务商 {provider} 成功加载 {count} 个站点。",
+                        provider=prov.provider,
+                        count=len(result),
+                    )
+            except Exception as e:
                 logfire.error(
                     "服务商 {provider} 加载站点数据失败: {error}",
                     provider=prov.provider,
-                    error=str(result),
-                )
-            elif result is not None:
-                logfire.info(
-                    "服务商 {provider} 成功加载 {count} 个站点。",
-                    provider=prov.provider,
-                    count=len(result),
+                    error=str(e),
                 )
 
     async def fetch_all_providers(self) -> Dict[str, Any]:
         """并发获取所有服务商的数据"""
-        results = {}
+        results: Dict[str, Any] = {}
 
         async with aiohttp.ClientSession() as session:
             tasks = []
