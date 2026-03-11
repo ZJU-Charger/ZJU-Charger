@@ -11,10 +11,6 @@ load_dotenv()
 class Config:
     """配置类，从环境变量读取配置"""
 
-    # 钉钉机器人配置
-    DINGTALK_WEBHOOK = os.getenv("DINGTALK_WEBHOOK", "")
-    DINGTALK_SECRET = os.getenv("DINGTALK_SECRET", "")
-
     # API 服务器配置
     API_HOST = os.getenv("API_HOST", "0.0.0.0")
     API_PORT = int(os.getenv("API_PORT", "8000"))

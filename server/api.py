@@ -32,7 +32,6 @@ from db import (
     fetch_all_stations_data,
     fetch_distinct_providers,
 )
-from ding.webhook import router as ding_router
 
 PROVIDER_PATTERN = r"^[A-Za-z0-9_-]+$"
 HASH_ID_PATTERN = r"^[0-9a-fA-F]{8}$"
@@ -241,10 +240,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 logfire.info("CORS 中间件已配置")
-
-# 注册钉钉路由
-app.include_router(ding_router)
-logfire.info("钉钉路由已注册")
 
 logfire.info("FastAPI 仅提供 API 路由；静态前端由独立托管服务提供")
 

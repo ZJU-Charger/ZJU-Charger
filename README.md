@@ -68,10 +68,6 @@ Next.js 框架开发：App Router + TypeScript + shadcn/ui, 开源在 [Phil-Fan/
 
 ![shortcut](assets/shortcut_result.jpg)
 
-### 钉钉 Webhook 机器人
-
-![dingbot](assets/dingbot.png)
-
 ## 文档
 
 详细的文档请查看 [docs](./docs/) 目录：
@@ -80,7 +76,6 @@ Next.js 框架开发：App Router + TypeScript + shadcn/ui, 开源在 [Phil-Fan/
 - [Web 介绍与部署](./docs/02-web-deployment.md) - 前端功能说明和部署指南
 - [Server 端部署](./docs/03-server-deployment.md) - 后端服务器部署指南
 - [Fetcher 文档](./docs/04-fetcher.md) - 如何添加新服务商、更新站点信息
-- [钉钉机器人文档](./docs/05-dingbot.md) - 钉钉机器人配置和使用
 - [Script 快捷指令文档](./docs/06-script-shortcuts.md) - iOS 快捷指令使用指南
 - [SQLite 数据库架构](./docs/07-sqlite-schema.md) - SQLite 数据库表结构和使用说明
 - [API 参考](./docs/08-api.md) - 后端 REST API 描述与示例

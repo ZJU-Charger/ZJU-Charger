@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "aiohttp",
-    "dingtalkchatbot",
     "fastapi",
     "httpx[socks]",
     "logfire[fastapi,system-metrics]>=4.16.0",
@@ -29,7 +28,6 @@ src = [
     "server",
     "fetcher",
     "db",
-    "ding",
 ]
 
 [tool.ruff.format]
@@ -72,8 +70,6 @@ include = [
     "fetcher.*",
     "db",
     "db.*",
-    "ding",
-    "ding.*",
 ]
 exclude = [
     "assets",

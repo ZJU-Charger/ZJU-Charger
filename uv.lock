@@ -291,18 +291,6 @@ wheels = [
 ]
 
 [[package]]
-name = "dingtalkchatbot"
-version = "1.5.7"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b1/8b/52243aed0a1a449ef2fedc42607b5ce9bdaa2f771ef9c7b8c1675141c8d6/DingtalkChatbot-1.5.7.tar.gz", hash = "sha256:74b392af656e86b64065e47d30fe1ad47e334b98073b8e2b253559e5b9c65bd1", size = 14152, upload-time = "2022-12-07T10:16:46.765Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/79/46/0961f961b64d432973663417857e8434f7267281ac80dda8a4a34c218e8a/DingtalkChatbot-1.5.7-py2.py3-none-any.whl", hash = "sha256:9658281e84bd07e6481544e1362687397343a88f375e47042472cb5e2c9f51d8", size = 15664, upload-time = "2022-12-07T10:16:44.408Z" },
-]
-
-[[package]]
 name = "executing"
 version = "2.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1464,7 +1452,6 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
-    { name = "dingtalkchatbot" },
     { name = "fastapi" },
     { name = "httpx", extra = ["socks"] },
     { name = "logfire", extra = ["fastapi", "system-metrics"] },
@@ -1482,7 +1469,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp" },
-    { name = "dingtalkchatbot" },
     { name = "fastapi" },
     { name = "httpx", extras = ["socks"] },
     { name = "logfire", extras = ["fastapi", "system-metrics"], specifier = ">=4.16.0" },
