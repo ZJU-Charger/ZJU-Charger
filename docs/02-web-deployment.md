@@ -4,7 +4,7 @@
 
 ## 技术栈概览
 
-- **基础**：Next.js 16（App Router）+ TypeScript + pnpm 构建 SPA，Tailwind CSS + shadcn/ui（Supabase 主题）负责样式与交互组件。
+- **基础**：Next.js 16（App Router）+ TypeScript + pnpm 构建 SPA，Tailwind CSS + shadcn/ui（默认主题）负责样式与交互组件。
 - **地图**：Apache ECharts 5 + `echarts-extension-amap`，统一使用高德地图底图，具备 geolocation 与截图能力。
 - **状态管理**：React Hooks + 定制 `useStations/useWatchlist/useRealtimeLocation` 等 hooks，将数据获取、轮询、主题、关注、定位 watch 等逻辑拆分成可复用模块。
 - **数据交互**：前端只调用 `/api/status`、`/api/providers`、`/api/stations`；这些端点直接读取 Supabase，实时数据由后台抓取任务写入，无需前端触发。

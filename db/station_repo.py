@@ -2,41 +2,39 @@
 数据库操作模块
 更新 Station 表单数据
 
-字段名,数据类型 (PostgreSQL),描述,对应 Fetcher 字段,约束
-hash_id,text,站点唯一标识 (主键),stations[*].hash_id,Primary Key
-name,text,站点名称,stations[*].name,NOT NULL
-provider,text,数据提供商,stations[*].provider,NOT NULL
-campus_id,integer,校区 ID,stations[*].campus_id,
-campus_name,text,校区名称,stations[*].campus_name,
-lat,double precision,纬度,stations[*].lat,
-lon,double precision,经度,stations[*].lon,
-device_ids,jsonb or text[],关联的设备 ID 列表,stations[*].device_ids,
-updated_at,timestamptz,本条元数据最近一次更新时间,stations[*].updated_at,NOT NULL
+字段名,数据类型 (SQLite),描述,对应 Fetcher 字段,约束
+hash_id,TEXT,站点唯一标识 (主键),stations[*].hash_id,Primary Key
+name,TEXT,站点名称,stations[*].name,NOT NULL
+provider,TEXT,数据提供商,stations[*].provider,NOT NULL
+campus_id,INTEGER,校区 ID,stations[*].campus_id,
+campus_name,TEXT,校区名称,stations[*].campus_name,
+lat,REAL,纬度,stations[*].lat,
+lon,REAL,经度,stations[*].lon,
+device_ids,TEXT,关联的设备 ID 列表 (JSON),stations[*].device_ids,
+updated_at,TEXT,本条元数据最近一次更新时间,stations[*].updated_at,NOT NULL
 """
 
 # db/station_repo.py
 
 from typing import List, Dict, Any, Optional
 
-# 移除对 Station 类的依赖
 import logfire
 
 from server.logfire_setup import ensure_logfire_configured
-from .client import get_supabase_client
+from .client import (
+    get_db_client,
+    execute_upsert,
+    execute_batch_upsert,
+    execute_query,
+    _json_to_sqlite,
+)
 
 ensure_logfire_configured()
-
-# --- Stations 表操作：CRUD/元数据管理 ---
-
-# 注意：upsert_station 和 batch_upsert_stations 仍然需要接受 Station 对象
-# 因为这些函数是用于写入的，它需要知道数据来源的格式。
-# 理想情况下，我们应该将 Station 转换为 Dict 再传入，但为了兼容性，暂时保持原签名，
-# 但我们将删除所有 Station 相关的内部转换函数。
 
 
 def upsert_station(
     station: Any,
-) -> bool:  # station 类型改为 Any 或 Dict 更好，但保留原逻辑。
+) -> bool:
     """
     插入或更新单个站点基础信息 (stations 表)。
 
@@ -44,8 +42,7 @@ def upsert_station(
     为了降低耦合，理想情况是此函数接受 Dict 而非 Station 对象，
     但为保留数据写入的原结构，暂保持原样。
     """
-    client = get_supabase_client()
-    if client is None:
+    if get_db_client() is None:
         return False
 
     try:
@@ -63,23 +60,20 @@ def upsert_station(
             "campus_name": getattr(station, "campus_name", None),
             "lat": getattr(station, "lat", None),
             "lon": getattr(station, "lon", None),
-            "device_ids": getattr(station, "device_ids", []),
+            "device_ids": _json_to_sqlite(getattr(station, "device_ids", [])),
             "updated_at": getattr(station, "updated_at", None),
         }
 
         # 执行 upsert 操作
-        client.table("stations").upsert(station_data).execute()
-        logfire.debug("成功插入/更新站点: {station_id}", station_id=station_id)
-        return True
+        return execute_upsert("stations", station_data, conflict_column="hash_id")
     except Exception as e:
         logfire.error("插入/更新站点失败: {error}", error=str(e))
         return False
 
 
-def batch_upsert_stations(stations: List[Any]) -> bool:  # 类型改为 List[Any]
+def batch_upsert_stations(stations: List[Any]) -> bool:
     """批量插入或更新站点基础信息 (stations 表)"""
-    client = get_supabase_client()
-    if client is None:
+    if get_db_client() is None:
         return False
 
     if not stations:
@@ -106,7 +100,7 @@ def batch_upsert_stations(stations: List[Any]) -> bool:  # 类型改为 List[Any
                 "campus_name": getattr(station, "campus_name", None),
                 "lat": getattr(station, "lat", None),
                 "lon": getattr(station, "lon", None),
-                "device_ids": getattr(station, "device_ids", []),
+                "device_ids": _json_to_sqlite(getattr(station, "device_ids", [])),
                 "updated_at": getattr(station, "updated_at", None),
             }
             station_data_list.append(station_data)
@@ -116,12 +110,13 @@ def batch_upsert_stations(stations: List[Any]) -> bool:  # 类型改为 List[Any
             return True
 
         # 执行批量 upsert
-        client.table("stations").upsert(station_data_list).execute()
-        logfire.info(
-            "成功批量插入/更新 {count} 个站点",
-            count=len(station_data_list),
-        )
-        return True
+        result = execute_batch_upsert("stations", station_data_list, conflict_column="hash_id")
+        if result:
+            logfire.info(
+                "成功批量插入/更新 {count} 个站点",
+                count=len(station_data_list),
+            )
+        return result
     except Exception as e:
         logfire.error("批量插入/更新站点失败: {error}", error=str(e))
         return False
@@ -135,24 +130,39 @@ def fetch_station_metadata(
     读取站点基础信息，返回 hash_id -> metadata 的映射 (原始数据库字典格式)。
     这是 DB 层的最底层查询接口。
     """
-    client = get_supabase_client()
-    if client is None:
+    if get_db_client() is None:
         return {}
 
     try:
-        query = client.table("stations").select(
-            "hash_id,name,provider,campus_id,campus_name,lat,lon,device_ids,updated_at"
-        )
-
+        filters = {}
         if station_ids:
-            query = query.in_("hash_id", station_ids)
-
+            filters["hash_id"] = station_ids
         if provider:
-            query = query.eq("provider", provider)
+            filters["provider"] = provider
 
-        response = query.execute()
+        # 构建查询
+        where_clause = ""
+        params = []
+        if filters:
+            conditions = []
+            for key, value in filters.items():
+                if isinstance(value, list):
+                    placeholders = ",".join(["?" for _ in value])
+                    conditions.append(f"{key} IN ({placeholders})")
+                    params.extend(value)
+                else:
+                    conditions.append(f"{key} = ?")
+                    params.append(value)
+            where_clause = " WHERE " + " AND ".join(conditions)
+
+        query = f"""
+            SELECT hash_id, name, provider, campus_id, campus_name, lat, lon, device_ids, updated_at
+            FROM stations{where_clause}
+        """
+
+        rows = execute_query(query, params if params else None)
         metadata = {}
-        for row in response.data or []:
+        for row in rows:
             station_id = row.get("hash_id")
             if station_id:
                 metadata[station_id] = row
@@ -191,21 +201,13 @@ def fetch_all_stations_data(provider: Optional[str] = None) -> List[Dict[str, An
 def fetch_distinct_providers() -> List[str]:
     """返回 stations 表中的 provider 去重列表"""
 
-    client = get_supabase_client()
-    if client is None:
+    if get_db_client() is None:
         return []
 
     try:
-        response = client.table("stations").select("provider").execute()
-        providers: List[str] = []
-        seen = set()
-        for row in response.data or []:
-            provider = row.get("provider")
-            if provider and provider not in seen:
-                seen.add(provider)
-                providers.append(provider)
-
-        providers.sort()
+        query = "SELECT DISTINCT provider FROM stations ORDER BY provider"
+        rows = execute_query(query)
+        providers: List[str] = [row.get("provider") for row in rows if row.get("provider")]
         return providers
     except Exception as exc:
         logfire.error("读取 provider 列表失败: {error}", error=str(exc))

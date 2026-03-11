@@ -46,7 +46,7 @@ class ProviderBase(ABC):
 
     def load_station_from_db(self) -> List[Station]:
         """
-        从 Supabase 数据库加载站点列表
+        从数据库加载站点列表
         """
         self.station_list = load_stations_from_db(self.provider)
         return self.station_list

@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from server.config import Config
 from db import (
-    initialize_supabase_config,
+    initialize_db_config,
     load_latest as load_latest_cache,
     fetch_station_metadata,
     fetch_all_stations_data,
@@ -124,10 +124,12 @@ class ApiCallTelemetry:
         api_latency_histogram.record(duration_ms, attributes)
 
 
-if Config.SUPABASE_URL and Config.SUPABASE_KEY:
-    initialize_supabase_config(Config.SUPABASE_URL, Config.SUPABASE_KEY)
+# 初始化 SQLite 数据库
+db_path = Config.SQLITE_DB_PATH if Config.SQLITE_DB_PATH else None
+if initialize_db_config(db_path):
+    logfire.info("SQLite 数据库初始化成功")
 else:
-    logfire.warn("Supabase URL/KEY 未配置，将无法访问云端缓存和历史数据。")
+    logfire.warn("SQLite 数据库初始化失败，部分功能可能不可用")
 
 # 初始化 slowapi 限流器（如果启用限流）
 # 默认使用内存存储，如需使用 Redis，可修改为：

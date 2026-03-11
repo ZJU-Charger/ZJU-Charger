@@ -152,10 +152,10 @@ name,provider,campus,lat,lon,device_ids
 
 ### 数据格式规范
 
-`data/stations.csv` 定义了全部静态信息，启动 FastAPI 时会自动同步到 Supabase `stations` 表。运行时流程：
+`data/stations.csv` 定义了全部静态信息，启动 FastAPI 时会自动同步到数据库 `stations` 表。运行时流程：
 
 1. **基础信息** → CSV → `Station` 数据类 → `stations` 表（字段：`hash_id/name/provider/campus_id/campus_name/lat/lon/device_ids/updated_at`）。
-2. **使用情况** → 抓取后写入 `latest`（保留最新一条）与 `usage`（历史快照，若 `SUPABASE_HISTORY_ENABLED=true`）。
+2. **使用情况** → 抓取后写入 `latest`（保留最新一条）与 `usage`（历史快照，若 `HISTORY_ENABLED=true`）。
 
 CSV 每行会被转换为如下结构（仅示意）：
 
@@ -193,7 +193,7 @@ CSV 每行会被转换为如下结构（仅示意）：
 - 最新快照 → `latest` 表（upsert，每个 `hash_id` 仅一行）
 - 历史快照 → `usage` 表（insert）
 
-API 层会从 `latest` + `stations` 表组装 `/api/status` 所需的 JSON，前端无需关心数据库细节。若 `.env` 中将 `SUPABASE_HISTORY_ENABLED=false`，则 fetcher 仍需更新 `latest` 与 `stations`（尤其是 `devids`），但可以跳过历史 `usage` 表的插入。
+API 层会从 `latest` + `stations` 表组装 `/api/status` 所需的 JSON，前端无需关心数据库细节。若 `.env` 中将 `HISTORY_ENABLED=false`，则 fetcher 仍需更新 `latest` 与 `stations`（尤其是 `devids`），但可以跳过历史 `usage` 表的插入。
 
 ## 最小抓取示例
 

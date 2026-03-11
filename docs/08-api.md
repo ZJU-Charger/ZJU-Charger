@@ -51,7 +51,7 @@ curl http://127.0.0.1:8000/api/stations
 
 ## GET `/api/status`
 
-主查询接口，永远从 Supabase `latest` 表读取实时快照；后台抓取程序会异步刷新该表。返回字段包括 `free/used/total/error` 以及 `devids/campus_name` 等。支持的查询参数：
+主查询接口，永远从数据库 `latest` 表读取实时快照；后台抓取程序会异步刷新该表。返回字段包括 `free/used/total/error` 以及 `devids/campus_name` 等。支持的查询参数：
 
 - `provider`: 按服务商过滤（例如 `neptune`）。
 - `hash_id`: 返回指定站点，必须是 8 位十六进制字符串（如 `3e262917`）。
@@ -99,4 +99,4 @@ curl -i "http://127.0.0.1:8000/api/status?provider=../etc/passwd"
 
 ---
 
-如需了解数据库表结构或历史数据使用方式，请结合 [docs/07-supabase-schema.md](./07-supabase-schema.md)。
+如需了解数据库表结构或历史数据使用方式，请结合 [docs/07-sqlite-schema.md](./07-sqlite-schema.md)。

@@ -8,8 +8,10 @@
 - [Fetcher 文档](./04-fetcher.md)
 - [钉钉机器人文档](./05-dingbot.md)
 - [Script 快捷指令文档](./06-script-shortcuts.md)
-- [Supabase 数据库架构](./07-supabase-schema.md)
+- [SQLite 数据库架构](./07-sqlite-schema.md)
 - [API 参考](./08-api.md)
+- [Logfire Dashboard 指南](./09-logfire-dashboard.md)
+- [从 Supabase 迁移到 SQLite](./10-migration.md)
 
 ## 📝 文档更新
 

@@ -9,13 +9,47 @@
 """
 
 import argparse
+import sys
 
 import logfire
 import uvicorn
 
 from server.background_fetcher import BackgroundFetcher
 from server.logfire_setup import ensure_logfire_configured
-from .config import Config
+from server.config import Config
+from db import initialize_db_config, get_db_client
+
+
+def check_and_init_database() -> bool:
+    """检查并初始化数据库"""
+    try:
+        print("正在初始化数据库...")
+        db_path = Config.SQLITE_DB_PATH if Config.SQLITE_DB_PATH else None
+        if initialize_db_config(db_path):
+            print("✅ 数据库初始化成功")
+            return True
+        else:
+            print("❌ 数据库初始化失败")
+            return False
+    except Exception as e:
+        print(f"❌ 数据库初始化错误: {e}")
+        return False
+
+
+def check_sqlite_available() -> bool:
+    """检查 SQLite3 是否可用"""
+    try:
+        import sqlite3
+        # 测试创建一个临时数据库
+        conn = sqlite3.connect(":memory:")
+        conn.execute("SELECT 1")
+        conn.close()
+        print("✅ SQLite3 支持正常")
+        return True
+    except Exception as e:
+        print(f"❌ SQLite3 不可用: {e}")
+        return False
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="启动 ZJU Charger API 服务器")
@@ -29,26 +63,38 @@ if __name__ == "__main__":
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="日志级别",
     )
+    parser.add_argument(
+        "--skip-db-check",
+        action="store_true",
+        help="跳过数据库检查（适用于数据库已在外部初始化的情况）"
+    )
 
     args = parser.parse_args()
 
     ensure_logfire_configured()
     separator = "=" * 60
 
-    if args.log_file:
-        logfire.warn(
-            "logfire 日志目前不支持按文件输出，忽略 --log-file 参数",
-            log_file=args.log_file,
-        )
-    if args.log_level.upper() != "INFO":
-        logfire.warn(
-            "logfire 日志暂不支持按 CLI 设置日志级别，收到的参数: {log_level}",
-            log_level=args.log_level,
-        )
-
     logfire.info("{separator}", separator=separator)
     logfire.info("ZJU Charger API 服务器启动")
     logfire.info("{separator}", separator=separator)
+
+    # 检查 SQLite3 可用性
+    print("\n🔍 检查 SQLite3 支持...")
+    if not check_sqlite_available():
+        print("\n❌ 错误: SQLite3 不可用，无法启动服务器")
+        print("SQLite3 是 Python 标准库的一部分，请检查 Python 安装。")
+        sys.exit(1)
+
+    # 初始化数据库（除非跳过检查）
+    if not args.skip_db_check:
+        print("\n🗄️  初始化数据库...")
+        if not check_and_init_database():
+            print("\n❌ 错误: 数据库初始化失败，无法启动服务器")
+            sys.exit(1)
+    else:
+        print("\n⏭️  跳过数据库检查（由 --skip-db-check 指定）")
+
+    print()
     logfire.info("服务器地址: http://{host}:{port}", host=args.host, port=args.port)
     logfire.info("API 文档: http://{host}:{port}/docs", host=args.host, port=args.port)
     logfire.info("前端页面: http://{host}:{port}/web/", host=args.host, port=args.port)

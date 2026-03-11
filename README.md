@@ -56,8 +56,8 @@ Next.js 框架开发：App Router + TypeScript + shadcn/ui, 开源在 [Phil-Fan/
 
 - [x] FastAPI 统一 API 接口，使用 slowapi 实现接口限流功能
 - [x] 多服务商架构支持，可同时异步抓取多个服务商的充电桩数据（目前支持了尼普顿服务商）
-- [x] `BackgroundFetcher` 后台定时抓取任务，自动写入 Supabase 缓存
-- [x] Supabase 数据库支持，记录历史使用情况数据（可选）
+- [x] `BackgroundFetcher` 后台定时抓取任务，自动写入本地 SQLite 缓存
+- [x] SQLite 数据库支持，记录历史使用情况数据（可选）
 
 ### 快捷指令
 
@@ -82,9 +82,10 @@ Next.js 框架开发：App Router + TypeScript + shadcn/ui, 开源在 [Phil-Fan/
 - [Fetcher 文档](./docs/04-fetcher.md) - 如何添加新服务商、更新站点信息
 - [钉钉机器人文档](./docs/05-dingbot.md) - 钉钉机器人配置和使用
 - [Script 快捷指令文档](./docs/06-script-shortcuts.md) - iOS 快捷指令使用指南
-- [Supabase 数据库架构](./docs/07-supabase-schema.md) - Supabase 数据库表结构和使用说明
+- [SQLite 数据库架构](./docs/07-sqlite-schema.md) - SQLite 数据库表结构和使用说明
 - [API 参考](./docs/08-api.md) - 后端 REST API 描述与示例
 - [Logfire Dashboard 指南](./docs/09-logfire-dashboard.md) - 如何启用/自定义 Logfire 监控看板
+- [从 Supabase 迁移到 SQLite](./docs/10-migration.md) - 数据库迁移指南
 
 ### 系统架构
 
@@ -97,7 +98,7 @@ flowchart TD
 
     B["Next.js Web App<br/>App Router"]
 
-    C["FastAPI API 服务<br/>(*只读 Supabase*)"]
+    C["FastAPI API 服务<br/>(*只读 SQLite*)"]
 
     D["钉钉机器人<br/>全部"]
 
@@ -106,7 +107,7 @@ flowchart TD
     F1["NeptuneProvider<br/>尼普顿服务商"]
     F2["其他服务商<br/>可扩展..."]
 
-    G["Supabase 数据库"]
+    G["SQLite 数据库"]
 
     %% 连接关系
     A --> |查询| C
@@ -121,7 +122,7 @@ flowchart TD
     H --> |调度| F2
 ```
 
-所有查询来源（Web、钉钉、脚本）只调用 FastAPI，从 Supabase 读取最近一次抓取的 `latest` 数据；后台抓取线程（`BackgroundFetcher`）在独立线程中运行 ProviderManager，异步刷新数据库缓存。前后端因此做到完全解耦，API 不再直连服务商。
+所有查询来源（Web、钉钉、脚本）只调用 FastAPI，从 SQLite 读取最近一次抓取的 `latest` 数据；后台抓取线程（`BackgroundFetcher`）在独立线程中运行 ProviderManager，异步刷新数据库缓存。前后端因此做到完全解耦，API 不再直连服务商。
 
 ### 项目结构
 
@@ -134,7 +135,8 @@ project/
 │   │   └── neptune.py        # 尼普顿服务商实现
 │   └── station.py            # 共享 Station 模型（CSV 解析 + hash 生成）
 ├── db/
-│   ├── client.py             # Supabase 客户端初始化
+│   ├── client.py             # SQLite 客户端初始化
+│   ├── schema.sql            # 数据库表结构定义
 │   ├── station_repo.py       # stations 表 CRUD
 │   ├── usage_repo.py         # latest/usage 表读写
 │   ├── pipeline.py           # record_usage_data 数据管道
@@ -185,7 +187,7 @@ project/
 - 感谢 [cyc-987/Charge-in-ZJU: 浙大充电桩查询](https://github.com/cyc-987/Charge-in-ZJU) 的原作者 [@cyc-987](https://github.com/cyc-987)，为项目提供灵感；感谢 [紫金港充电桩地图 - CC98 论坛](https://www.cc98.org/topic/6348814) 中分享的 ZJG 充电地图；感谢 [浙江大学 E 校园电子地图平台](https://map.zju.edu.cn/index?locale=en_US) 中的部分充电桩点位信息。
 - 使用 [经纬度查询定位 ｜ 坐标拾取](https://www.mapchaxun.cn/Regeo) 调整抓取到的错误站点坐标。
 - 使用 [fastapi](https://fastapi.tiangolo.com/) 实现 API 服务；使用 [slowapi](https://github.com/sunhailin-dev/slowapi) 实现接口限流功能。
-- 使用 [supabase](https://supabase.com/) 实现数据库功能。
+- 使用 [sqlite3](https://docs.python.org/3/library/sqlite3.html) 实现本地数据库功能。
 - 使用 [Caddy](https://caddyserver.com/) 实现 HTTPS 证书与反向代理服务。
 - 使用 [Logfire](https://pydantic.dev/logfire) 实现日志收集与分析。
 

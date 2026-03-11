@@ -7,9 +7,9 @@
 # --- 0. 客户端配置和管理 ---
 # 导入并暴露配置入口，这是实现解耦的关键
 from .client import (
-    initialize_supabase_config,
-    get_supabase_client,
-    reset_supabase_client,
+    initialize_db_config,
+    get_db_client,
+    reset_db_client,
 )
 
 # --- 1. 站点元数据仓库 (stations 表) ---
@@ -31,12 +31,12 @@ from .usage_repo import (
 # --- 3. 业务管道 (核心写入逻辑) ---
 from .pipeline import record_usage_data
 
-# 统一导出所有公共接口
+# 统一导出所有公共���口
 __all__ = [
     # 客户端配置
-    "initialize_supabase_config",
-    "get_supabase_client",
-    "reset_supabase_client",
+    "initialize_db_config",
+    "get_db_client",
+    "reset_db_client",
     # station_repo
     "upsert_station",
     "batch_upsert_stations",

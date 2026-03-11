@@ -1,4 +1,4 @@
-"""Background fetch loop that keeps Supabase caches fresh."""
+"""Background fetch loop that keeps database caches fresh."""
 
 import asyncio
 import json
@@ -108,7 +108,7 @@ class BackgroundFetcher:
                 await asyncio.sleep(60)
 
     async def _run_fetch_cycle(self, reason_label: str) -> None:
-        history_enabled = Config.SUPABASE_HISTORY_ENABLED
+        history_enabled = Config.HISTORY_ENABLED
         with logfire.span(
             "执行抓取与写入流程",
             reason=reason_label,
@@ -159,21 +159,21 @@ class BackgroundFetcher:
                 result["updated_at"] = snapshot_time
 
             with logfire.span(
-                "写入 Supabase usage 缓存",
+                "写入数据库 usage 缓存",
                 reason=reason_label,
                 station_count=len(stations),
                 history_enabled=history_enabled,
             ):
                 if record_usage_data(result, history_mode_enabled=history_enabled):
                     logfire.info(
-                        "{reason_label}数据成功写入 Supabase（history={history_enabled}），共 {station_count} 个站点",
+                        "{reason_label}数据成功写入数据库（history={history_enabled}），共 {station_count} 个站点",
                         reason_label=reason_label,
                         history_enabled=history_enabled,
                         station_count=len(stations),
                     )
                 else:
                     logfire.error(
-                        "{reason_label}数据写入 Supabase 失败",
+                        "{reason_label}数据写入数据库失败",
                         reason_label=reason_label,
                     )
 

@@ -155,7 +155,7 @@ def _data_to_station(data: Dict[str, Any]) -> Station:
 
 def load_stations_from_db(provider: str) -> List[Station]:
     """
-    从 Supabase 数据库加载指定 provider 的站点列表，并转换为 Station 对象。
+    从数据库加载指定 provider 的站点列表，并转换为 Station 对象。
 
     Args:
         provider: 要加载的站点提供商名称。
@@ -166,7 +166,7 @@ def load_stations_from_db(provider: str) -> List[Station]:
     Raises:
         任何由 DB 操作或网络引起的异常。
     """
-    # **减少 try-catch：** # 直接调用 DB 接口，将潜在的 Supabase/网络错误抛给上层调用者。
+    # **减少 try-catch：** # 直接调用 DB 接口，将潜在的数据库/网络错误抛给上层调用者。
 
     print(f"尝试从数据库加载 provider='{provider}' 的站点数据...")
 

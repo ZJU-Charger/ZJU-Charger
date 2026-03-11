@@ -2,25 +2,25 @@
 
 usage 表
 
-字段名,数据类型 (PostgreSQL),描述,对应 Fetcher 字段,约束
-id,bigint,记录唯一 ID,N/A,Primary Key (自增)
-hash_id,text,站点唯一标识 (外键),stations[*].hash_id,NOT NULL (Foreign Key to stations.hash_id)
-snapshot_time,timestamptz,抓取时间 (来自 Fetcher),updated_at,NOT NULL
-free,integer,可用数量,stations[*].free,NOT NULL
-used,integer,已用数量,stations[*].used,NOT NULL
-total,integer,总数,stations[*].total,NOT NULL
-error,integer,故障数量,stations[*].error,NOT NULL
+字段名,数据类型 (SQLite),描述,对应 Fetcher 字段,约束
+id,INTEGER,记录唯一 ID (自增),N/A,Primary Key
+hash_id,TEXT,站点唯一标识 (外键),stations[*].hash_id,NOT NULL (Foreign Key to stations.hash_id)
+snapshot_time,TEXT,抓取时间 (来自 Fetcher),updated_at,NOT NULL
+free,INTEGER,可用数量,stations[*].free,NOT NULL
+used,INTEGER,已用数量,stations[*].used,NOT NULL
+total,INTEGER,总数,stations[*].total,NOT NULL
+error,INTEGER,故障数量,stations[*].error,NOT NULL
 
 
 latest 表
 
-字段名,数据类型 (PostgreSQL),描述,对应 Fetcher 字段,约束
-hash_id,text,站点唯一标识 (主键),stations[*].hash_id,Primary Key (Foreign Key to stations.hash_id)
-snapshot_time,timestamptz,最新抓取时间 (来自 Fetcher),updated_at,NOT NULL
-free,integer,可用数量,stations[*].free,NOT NULL
-used,integer,已用数量,stations[*].used,NOT NULL
-total,integer,总数,stations[*].total,NOT NULL
-error,integer,故障数量,stations[*].error,NOT NULL
+字段名,数据类型 (SQLite),描述,对应 Fetcher 字段,约束
+hash_id,TEXT,站点唯一标识 (主键),stations[*].hash_id,Primary Key (Foreign Key to stations.hash_id)
+snapshot_time,TEXT,最新抓取时间 (来自 Fetcher),updated_at,NOT NULL
+free,INTEGER,可用数量,stations[*].free,NOT NULL
+used,INTEGER,已用数量,stations[*].used,NOT NULL
+total,INTEGER,总数,stations[*].total,NOT NULL
+error,INTEGER,故障数量,stations[*].error,NOT NULL
 """
 
 # db/usage_repo.py
@@ -30,13 +30,17 @@ from typing import List, Dict, Any, Optional
 import logfire
 
 from server.logfire_setup import ensure_logfire_configured
-from .client import get_supabase_client
+from .client import (
+    get_db_client,
+    execute_upsert,
+    execute_batch_upsert,
+    execute_query,
+)
 
 ensure_logfire_configured()
 
 LATEST_TABLE_NAME = "latest"
 USAGE_TABLE_NAME = "usage"
-DEFAULT_RETURNING = "minimal"
 
 # --- 公共接口实现 ---
 
@@ -49,8 +53,7 @@ def insert(data: Dict[str, Any], sheet_name: str) -> bool:
         data: 包含单个站点信息的字典。
         sheet_name: 目标表单名称 ('latest' 或 'usage')。
     """
-    client = get_supabase_client()
-    if client is None:
+    if get_db_client() is None:
         return False
 
     table_name = sheet_name.lower()
@@ -81,15 +84,24 @@ def insert(data: Dict[str, Any], sheet_name: str) -> bool:
     try:
         if table_name == LATEST_TABLE_NAME:
             # 针对 latest 表使用 upsert (单条)
-            client.table(table_name).upsert(
-                [record], on_conflict="hash_id", returning=DEFAULT_RETURNING
-            ).execute()
+            return execute_upsert(table_name, record, conflict_column="hash_id")
         else:
             # 针对 usage 表使用 insert (单条)
-            client.table(table_name).insert([record], returning=DEFAULT_RETURNING).execute()
+            conn = get_db_client()
+            if conn is None:
+                return False
 
-        logfire.debug("成功插入/更新 {table_name} 单条记录。", table_name=table_name)
-        return True
+            columns = list(record.keys())
+            placeholders = ",".join(["?" for _ in columns])
+            column_names = ",".join(columns)
+
+            query = f"INSERT INTO {table_name} ({column_names}) VALUES ({placeholders})"
+            cursor = conn.cursor()
+            cursor.execute(query, list(record.values()))
+            conn.commit()
+
+            logfire.debug("成功插入 {table_name} 单条记录。", table_name=table_name)
+            return True
 
     except Exception as e:
         logfire.error("执行单条数据库操作失败: {error}", error=str(e))
@@ -104,8 +116,7 @@ def batch_insert(data: Dict[str, Any], sheet_name: str) -> bool:
         data: 包含 'stations' (List[Dict]) 和 'updated_at' (str) 的字典。
         sheet_name: 目标表单名称 ('latest' 或 'usage')。
     """
-    client = get_supabase_client()
-    if client is None:
+    if get_db_client() is None:
         return False
 
     table_name = sheet_name.lower()
@@ -150,23 +161,37 @@ def batch_insert(data: Dict[str, Any], sheet_name: str) -> bool:
     try:
         # 针对 latest 表使用 upsert，针对 usage 表使用 insert
         if table_name == LATEST_TABLE_NAME:
-            client.table(table_name).upsert(
-                usage_records,
-                on_conflict="hash_id",
-                returning=DEFAULT_RETURNING,
-            ).execute()
+            result = execute_batch_upsert(
+                table_name, usage_records, conflict_column="hash_id"
+            )
             action = "更新/插入"
         else:
-            client.table(table_name).insert(usage_records, returning=DEFAULT_RETURNING).execute()
+            conn = get_db_client()
+            if conn is None:
+                return False
+
+            columns = list(usage_records[0].keys())
+            placeholders = ",".join(["?" for _ in columns])
+            column_names = ",".join(columns)
+
+            query = f"INSERT INTO {table_name} ({column_names}) VALUES ({placeholders})"
+            cursor = conn.cursor()
+
+            values_list = [list(record.values()) for record in usage_records]
+            cursor.executemany(query, values_list)
+            conn.commit()
+
+            result = True
             action = "插入"
 
-        logfire.info(
-            "成功批量 {action} {table_name} {count} 条记录。",
-            action=action,
-            table_name=table_name,
-            count=len(usage_records),
-        )
-        return True
+        if result:
+            logfire.info(
+                "成功批量 {action} {table_name} {count} 条记录。",
+                action=action,
+                table_name=table_name,
+                count=len(usage_records),
+            )
+        return result
 
     except Exception as e:
         logfire.error("批量数据库操作失败: {error}", error=str(e))
@@ -175,21 +200,19 @@ def batch_insert(data: Dict[str, Any], sheet_name: str) -> bool:
 
 def load_latest() -> Optional[Dict[str, Any]]:
     """
-    从 Supabase latest 表读取缓存数据。
+    从 SQLite latest 表读取缓存数据。
     返回格式: {"updated_at": latest_snapshot_time (str), "rows": List[Dict]}
     """
-    client = get_supabase_client()
-    if client is None:
+    if get_db_client() is None:
         return None
 
     try:
-        response = (
-            client.table(LATEST_TABLE_NAME)
-            .select("hash_id,snapshot_time,free,used,total,error")
-            .execute()
-        )
+        query = """
+            SELECT hash_id, snapshot_time, free, used, total, error
+            FROM latest
+        """
 
-        rows: List[Dict[str, Any]] = response.data or []
+        rows: List[Dict[str, Any]] = execute_query(query)
         if not rows:
             logfire.warn("latest 表暂无缓存数据。")
             return None

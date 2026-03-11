@@ -80,7 +80,7 @@ NEXT_PUBLIC_API_BASE=https://charger.philfan.cn
 
 ### 主要功能
 
-- **Next.js + shadcn/ui**：使用 App Router、TypeScript 与 shadcn Supabase 主题构建 UI，所有组件位于 `frontend/src/components`。
+- **Next.js + shadcn/ui**：使用 App Router、TypeScript 与 shadcn 主题构建 UI，所有组件位于 `frontend/src/components`。
 - **AMap + Apache ECharts**：依旧通过 `echarts-extension-amap` 渲染高德底图，标记颜色与旧版保持一致。
 - **站点列表与关注**：校区、服务商筛选、关注状态、主题偏好全部通过 hooks 与 `localStorage` 管理，多标签页实时同步。
 - **自动刷新**：前端 `useAutoRefresh()` 直接使用默认 60 秒轮询，也可以在前端配置文件中覆盖该值，无需再请求 `/api/config`。
